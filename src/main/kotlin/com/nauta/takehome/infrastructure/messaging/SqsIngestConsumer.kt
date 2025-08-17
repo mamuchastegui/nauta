@@ -69,59 +69,80 @@ class SqsIngestConsumer(
 
             // Parse rawPayload into IngestMessage and process it
             val ingestMessage = parseRawPayload(queueMessage.rawPayload, queueMessage.tenantId)
-            
+
             // Process the message using IngestService
             ingestService.processIngestMessage(ingestMessage)
-            
+
             deleteMessage(message)
-            logger.info("Successfully processed message: ${queueMessage.messageId} for tenant: ${queueMessage.tenantId}")
+            logger.info(
+                "Successfully processed message: ${queueMessage.messageId} for tenant: ${queueMessage.tenantId}",
+            )
         } catch (e: JsonProcessingException) {
             logger.error("Failed to parse message body for message: ${message.messageId()}", e)
             handleFailedMessage(message, e)
         } catch (e: IllegalArgumentException) {
             logger.error("Invalid message data for message: ${message.messageId()}", e)
             handleFailedMessage(message, e)
-        } catch (e: Exception) {
-            logger.error("Unexpected error processing message: ${message.messageId()}", e)
+        } catch (e: SdkException) {
+            logger.error("AWS SDK error processing message: ${message.messageId()}", e)
+            handleFailedMessage(message, e)
+        } catch (e: NoSuchElementException) {
+            logger.error("Missing required field processing message: ${message.messageId()}", e)
+            handleFailedMessage(message, e)
+        } catch (e: ClassCastException) {
+            logger.error("Type conversion error processing message: ${message.messageId()}", e)
             handleFailedMessage(message, e)
         }
     }
 
-    private fun parseRawPayload(rawPayload: String, tenantId: String): IngestMessage {
+    private fun parseRawPayload(
+        rawPayload: String,
+        tenantId: String,
+    ): IngestMessage {
         try {
             // Parse the JSON structure from the rawPayload
             val jsonNode = objectMapper.readTree(rawPayload)
-            
+
             // Extract booking data
-            val booking = jsonNode.get("booking")?.let { bookingNode ->
-                BookingData(bookingNode.get("booking_ref").asText())
-            }
-            
+            val booking =
+                jsonNode.get("booking")?.let { bookingNode ->
+                    BookingData(bookingNode.get("booking_ref").asText())
+                }
+
             // Extract orders data
-            val orders = jsonNode.get("orders")?.map { orderNode ->
-                val invoices = orderNode.get("invoices")?.map { invoiceNode ->
-                    InvoiceData(invoiceNode.get("invoice_ref").asText())
+            val orders =
+                jsonNode.get("orders")?.map { orderNode ->
+                    val invoices =
+                        orderNode.get("invoices")?.map { invoiceNode ->
+                            InvoiceData(invoiceNode.get("invoice_ref").asText())
+                        } ?: emptyList()
+
+                    OrderData(
+                        purchaseRef = orderNode.get("purchase_ref").asText(),
+                        invoices = invoices,
+                    )
                 } ?: emptyList()
-                
-                OrderData(
-                    purchaseRef = orderNode.get("purchase_ref").asText(),
-                    invoices = invoices
-                )
-            } ?: emptyList()
-            
+
             // Extract containers data
-            val containers = jsonNode.get("containers")?.map { containerNode ->
-                ContainerData(containerNode.get("container_ref").asText())
-            } ?: emptyList()
-            
+            val containers =
+                jsonNode.get("containers")?.map { containerNode ->
+                    ContainerData(containerNode.get("container_ref").asText())
+                } ?: emptyList()
+
             return IngestMessage(
                 tenantId = tenantId,
                 booking = booking,
                 orders = orders,
-                containers = containers
+                containers = containers,
             )
-        } catch (e: Exception) {
+        } catch (e: JsonProcessingException) {
             logger.error("Failed to parse rawPayload: $rawPayload", e)
+            throw IllegalArgumentException("Invalid rawPayload format: ${e.message}", e)
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            // Need broad catch for unknown JSON parsing errors
+            logger.error("Error parsing rawPayload: $rawPayload", e)
             throw IllegalArgumentException("Invalid rawPayload format: ${e.message}", e)
         }
     }

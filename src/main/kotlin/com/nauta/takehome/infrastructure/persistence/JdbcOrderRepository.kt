@@ -55,7 +55,7 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
         return try {
             jdbcTemplate.queryForObject(sql, orderRowMapper, tenantId, purchaseRef.value)
         } catch (e: EmptyResultDataAccessException) {
-            logger.debug("No order found for purchase ref: ${purchaseRef.value} and tenant: $tenantId")
+            logger.debug("No order found for purchase ref: ${purchaseRef.value} and tenant: $tenantId", e)
             null
         }
     }

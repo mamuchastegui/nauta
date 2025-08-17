@@ -54,7 +54,7 @@ class JdbcInvoiceRepository(private val jdbcTemplate: JdbcTemplate) : InvoiceRep
         return try {
             jdbcTemplate.queryForObject(sql, invoiceRowMapper, tenantId, invoiceRef.value)
         } catch (e: EmptyResultDataAccessException) {
-            logger.debug("No invoice found for ref: ${invoiceRef.value} and tenant: $tenantId")
+            logger.debug("No invoice found for ref: ${invoiceRef.value} and tenant: $tenantId", e)
             null
         }
     }

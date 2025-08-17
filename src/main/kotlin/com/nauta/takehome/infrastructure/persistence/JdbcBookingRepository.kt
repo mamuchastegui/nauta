@@ -49,7 +49,7 @@ class JdbcBookingRepository(private val jdbcTemplate: JdbcTemplate) : BookingRep
         return try {
             jdbcTemplate.queryForObject(sql, bookingRowMapper, tenantId, bookingRef.value)
         } catch (e: EmptyResultDataAccessException) {
-            logger.debug("No booking found for ref: ${bookingRef.value} and tenant: $tenantId")
+            logger.debug("No booking found for ref: ${bookingRef.value} and tenant: $tenantId", e)
             null
         }
     }

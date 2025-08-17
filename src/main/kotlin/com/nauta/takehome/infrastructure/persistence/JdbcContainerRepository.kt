@@ -55,7 +55,7 @@ class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : Containe
         return try {
             jdbcTemplate.queryForObject(sql, containerRowMapper, tenantId, containerRef.value)
         } catch (e: EmptyResultDataAccessException) {
-            logger.debug("No container found for ref: ${containerRef.value} and tenant: $tenantId")
+            logger.debug("No container found for ref: ${containerRef.value} and tenant: $tenantId", e)
             null
         }
     }
