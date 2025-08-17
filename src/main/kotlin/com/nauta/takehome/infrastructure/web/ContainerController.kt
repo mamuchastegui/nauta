@@ -1,0 +1,73 @@
+package com.nauta.takehome.infrastructure.web
+
+import com.nauta.takehome.application.ContainerRepository
+import com.nauta.takehome.application.OrderRepository
+import com.nauta.takehome.domain.Container
+import com.nauta.takehome.domain.ContainerRef
+import com.nauta.takehome.domain.Order
+import com.nauta.takehome.infrastructure.security.TenantContext
+import org.slf4j.LoggerFactory
+import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+
+@RestController
+@RequestMapping("/api/containers")
+class ContainerController(
+    private val containerRepository: ContainerRepository,
+    private val orderRepository: OrderRepository,
+    private val tenantContext: TenantContext,
+) {
+    private val logger = LoggerFactory.getLogger(ContainerController::class.java)
+
+    @GetMapping
+    fun getAllContainers(): ResponseEntity<List<ContainerDto>> {
+        val tenantId =
+            tenantContext.getCurrentTenantId()
+                ?: return ResponseEntity.badRequest().build()
+
+        val containers = containerRepository.findAll(tenantId)
+        return ResponseEntity.ok(containers.map { it.toDto() })
+    }
+
+    @GetMapping("/{containerId}/orders")
+    fun getOrdersForContainer(
+        @PathVariable containerId: String,
+    ): ResponseEntity<List<OrderDto>> {
+        val tenantId =
+            tenantContext.getCurrentTenantId()
+                ?: return ResponseEntity.badRequest().build()
+
+        return try {
+            val containerRef = ContainerRef(containerId)
+            val orders = orderRepository.findByContainerRef(tenantId, containerRef)
+            ResponseEntity.ok(orders.map { it.toDto() })
+        } catch (e: IllegalArgumentException) {
+            logger.warn("Invalid container ID: $containerId", e)
+            ResponseEntity.badRequest().build()
+        }
+    }
+}
+
+private fun Container.toDto() =
+    ContainerDto(
+        id = id,
+        containerRef = containerRef.value,
+        tenantId = tenantId,
+        bookingRef = bookingRef?.value,
+        createdAt = createdAt.toString(),
+        updatedAt = updatedAt.toString(),
+    )
+
+private fun Order.toDto() =
+    OrderDto(
+        id = id,
+        purchaseRef = purchaseRef.value,
+        tenantId = tenantId,
+        bookingRef = bookingRef?.value,
+        containerRef = containerRef?.value,
+        createdAt = createdAt.toString(),
+        updatedAt = updatedAt.toString(),
+    )

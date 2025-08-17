@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?sslmode=require
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  jpa:
+    open-in-view: false
+server:
+  port: 8080
+
+app:
+  sqs:
+    ingest-queue-url: ${SQS_INGEST_QUEUE_URL}

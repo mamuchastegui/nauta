@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: nauta-takehome
+
+app:
+  jwt:
+    secret: ${JWT_SECRET}

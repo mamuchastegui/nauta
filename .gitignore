@@ -1,0 +1,38 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+
+# Test results
+**/build/reports/
+**/build/test-results/
+
+# Spring Boot
+HELP.md
+target/
+.spring-boot-devtools.properties
+
+# Docker volumes
+postgres_data/
+postgres_test_data/
+localstack_data/
