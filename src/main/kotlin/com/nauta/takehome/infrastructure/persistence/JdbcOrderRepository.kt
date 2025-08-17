@@ -65,14 +65,6 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
         return jdbcTemplate.query(sql, orderRowMapper, tenantId)
     }
 
-    override fun findByContainerRef(
-        tenantId: String,
-        containerRef: ContainerRef,
-    ): List<Order> {
-        val sql = "SELECT * FROM orders WHERE tenant_id = ? AND container_ref = ?"
-        return jdbcTemplate.query(sql, orderRowMapper, tenantId, containerRef.value)
-    }
-
     private val orderRowMapper =
         RowMapper<Order> { rs, _ ->
             Order(
@@ -80,7 +72,6 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
                 purchaseRef = PurchaseRef(rs.getString("purchase_ref")),
                 tenantId = rs.getString("tenant_id"),
                 bookingRef = rs.getString("booking_ref")?.let { BookingRef(it) },
-                containerRef = rs.getString("container_ref")?.let { ContainerRef(it) },
                 createdAt = rs.getTimestamp("created_at").toInstant(),
                 updatedAt = rs.getTimestamp("updated_at").toInstant(),
             )

@@ -103,30 +103,58 @@ class SqsIngestConsumer(
             // Parse the JSON structure from the rawPayload
             val jsonNode = objectMapper.readTree(rawPayload)
 
-            // Extract booking data
+            // Extract booking data - now a direct string
             val booking =
                 jsonNode.get("booking")?.let { bookingNode ->
-                    BookingData(bookingNode.get("booking_ref").asText())
+                    if (bookingNode.isTextual) {
+                        // New format: "booking": "BK123"
+                        BookingData(bookingNode.asText())
+                    } else {
+                        // Legacy format: "booking": {"booking_ref": "BK123456"}
+                        BookingData(bookingNode.get("booking_ref").asText())
+                    }
                 }
 
-            // Extract orders data
+            // Extract orders data - new field names
             val orders =
                 jsonNode.get("orders")?.map { orderNode ->
+                    val purchaseRef = if (orderNode.has("purchase")) {
+                        // New format: "purchase": "PO123"
+                        orderNode.get("purchase").asText()
+                    } else {
+                        // Legacy format: "purchase_ref": "PO789012"
+                        orderNode.get("purchase_ref").asText()
+                    }
+
                     val invoices =
                         orderNode.get("invoices")?.map { invoiceNode ->
-                            InvoiceData(invoiceNode.get("invoice_ref").asText())
+                            val invoiceRef = if (invoiceNode.has("invoice")) {
+                                // New format: "invoice": "IN123"
+                                invoiceNode.get("invoice").asText()
+                            } else {
+                                // Legacy format: "invoice_ref": "INV345678"
+                                invoiceNode.get("invoice_ref").asText()
+                            }
+                            InvoiceData(invoiceRef)
                         } ?: emptyList()
 
                     OrderData(
-                        purchaseRef = orderNode.get("purchase_ref").asText(),
+                        purchaseRef = purchaseRef,
                         invoices = invoices,
                     )
                 } ?: emptyList()
 
-            // Extract containers data
+            // Extract containers data - new field names
             val containers =
                 jsonNode.get("containers")?.map { containerNode ->
-                    ContainerData(containerNode.get("container_ref").asText())
+                    val containerRef = if (containerNode.has("container")) {
+                        // New format: "container": "MEDU1234567"
+                        containerNode.get("container").asText()
+                    } else {
+                        // Legacy format: "container_ref": "ABCD1234567"
+                        containerNode.get("container_ref").asText()
+                    }
+                    ContainerData(containerRef)
                 } ?: emptyList()
 
             return IngestMessage(

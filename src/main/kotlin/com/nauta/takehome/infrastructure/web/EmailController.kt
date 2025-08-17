@@ -24,7 +24,7 @@ class EmailController(
 
     @PostMapping("/email")
     fun ingestEmail(
-        @RequestBody payload: Map<String, Any>,
+        @RequestBody request: EmailIngestRequest,
     ): ResponseEntity<Map<String, String>> {
         val tenantId =
             tenantContext.getCurrentTenantId()
@@ -34,10 +34,10 @@ class EmailController(
         val idempotencyKey = UUID.randomUUID().toString()
         val rawPayload =
             try {
-                objectMapper.writeValueAsString(payload)
+                objectMapper.writeValueAsString(request)
             } catch (e: JsonProcessingException) {
                 logger.warn("Failed to serialize email payload to JSON, using toString fallback", e)
-                payload.toString() // Fallback to toString if JSON serialization fails
+                request.toString() // Fallback to toString if JSON serialization fails
             }
 
         eventBus.publishIngest(tenantId, idempotencyKey, rawPayload)

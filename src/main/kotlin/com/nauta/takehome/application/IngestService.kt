@@ -6,7 +6,9 @@ import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.Invoice
 import com.nauta.takehome.domain.InvoiceRef
+import com.nauta.takehome.domain.LinkingReason
 import com.nauta.takehome.domain.Order
+import com.nauta.takehome.domain.OrderContainer
 import com.nauta.takehome.domain.PurchaseRef
 import org.springframework.stereotype.Service
 
@@ -16,6 +18,7 @@ class IngestService(
     private val containerRepository: ContainerRepository,
     private val bookingRepository: BookingRepository,
     private val invoiceRepository: InvoiceRepository,
+    private val orderContainerRepository: OrderContainerRepository,
 ) {
     fun ingestEmail(payload: EmailPayload): IngestResult {
         return try {
@@ -57,17 +60,19 @@ class IngestService(
         val tenantId = message.tenantId
 
         // Process booking if present
-        message.booking?.let { bookingData ->
+        val booking = message.booking?.let { bookingData ->
             val bookingRef = BookingRef(bookingData.bookingRef)
             bookingRepository.upsertByRef(tenantId, bookingRef)
         }
 
         // Process orders and their invoices
+        val processedOrders = mutableListOf<Order>()
         message.orders.forEach { orderData ->
             val purchaseRef = PurchaseRef(orderData.purchaseRef)
             val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
 
-            orderRepository.upsertByRef(tenantId, purchaseRef, bookingRef)
+            val order = orderRepository.upsertByRef(tenantId, purchaseRef, bookingRef)
+            processedOrders.add(order)
 
             // Process invoices for this order
             orderData.invoices.forEach { invoiceData ->
@@ -77,14 +82,73 @@ class IngestService(
         }
 
         // Process containers
+        val processedContainers = mutableListOf<Container>()
         message.containers.forEach { containerData ->
             val containerRef = ContainerRef(containerData.containerRef)
             val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
 
-            containerRepository.upsertByRef(tenantId, containerRef, bookingRef)
+            val container = containerRepository.upsertByRef(tenantId, containerRef, bookingRef)
+            processedContainers.add(container)
+        }
 
-            // Progressive linking: associate containers with orders through booking reference
-            // Future enhancement: implement more sophisticated linking algorithms
+        // Progressive linking: Create M:N relationships between orders and containers
+        performProgressiveLinking(tenantId, processedOrders, processedContainers, message.booking)
+    }
+
+    private fun performProgressiveLinking(
+        tenantId: String,
+        orders: List<Order>,
+        containers: List<Container>,
+        bookingData: BookingData?,
+    ) {
+        if (orders.isEmpty() || containers.isEmpty()) return
+
+        // Strategy 1: Link by booking reference (highest confidence)
+        if (bookingData != null) {
+            val bookingRef = BookingRef(bookingData.bookingRef)
+            linkByBookingRef(tenantId, orders, containers, bookingRef)
+        } else {
+            // Strategy 2: Link all orders to all containers in the same message
+            // This is a fallback when no booking reference is available
+            linkAllToAll(tenantId, orders, containers, LinkingReason.SYSTEM_MIGRATION)
+        }
+    }
+
+    private fun linkByBookingRef(
+        tenantId: String,
+        orders: List<Order>,
+        containers: List<Container>,
+        bookingRef: BookingRef,
+    ) {
+        // Link orders and containers that belong to the same booking
+        val eligibleOrders = orders.filter { it.bookingRef == bookingRef }
+        val eligibleContainers = containers.filter { it.bookingRef == bookingRef }
+
+        linkAllToAll(tenantId, eligibleOrders, eligibleContainers, LinkingReason.BOOKING_MATCH)
+    }
+
+    private fun linkAllToAll(
+        tenantId: String,
+        orders: List<Order>,
+        containers: List<Container>,
+        linkingReason: LinkingReason,
+    ) {
+        orders.forEach { order ->
+            containers.forEach { container ->
+                if (order.id != null && container.id != null) {
+                    try {
+                        orderContainerRepository.linkOrderAndContainer(
+                            tenantId = tenantId,
+                            orderId = order.id,
+                            containerId = container.id,
+                            linkingReason = linkingReason,
+                        )
+                    } catch (e: Exception) {
+                        // Link might already exist, which is fine
+                        // Log and continue
+                    }
+                }
+            }
         }
     }
 }
@@ -103,11 +167,6 @@ interface OrderRepository {
     ): Order?
 
     fun findAll(tenantId: String): List<Order>
-
-    fun findByContainerRef(
-        tenantId: String,
-        containerRef: ContainerRef,
-    ): List<Order>
 }
 
 interface ContainerRepository {
@@ -153,6 +212,43 @@ interface InvoiceRepository {
         tenantId: String,
         invoiceRef: InvoiceRef,
     ): Invoice?
+}
+
+interface OrderContainerRepository {
+    fun linkOrderAndContainer(
+        tenantId: String,
+        orderId: Long,
+        containerId: Long,
+        linkingReason: LinkingReason = LinkingReason.BOOKING_MATCH,
+    ): OrderContainer
+
+    fun findContainersByOrderId(
+        tenantId: String,
+        orderId: Long,
+    ): List<Container>
+
+    fun findOrdersByContainerId(
+        tenantId: String,
+        containerId: Long,
+    ): List<Order>
+
+    fun findContainersByPurchaseRef(
+        tenantId: String,
+        purchaseRef: PurchaseRef,
+    ): List<Container>
+
+    fun findOrdersByContainerRef(
+        tenantId: String,
+        containerRef: ContainerRef,
+    ): List<Order>
+
+    fun unlinkOrderAndContainer(
+        tenantId: String,
+        orderId: Long,
+        containerId: Long,
+    ): Boolean
+
+    fun findAllRelationships(tenantId: String): List<OrderContainer>
 }
 
 // Data classes for message processing

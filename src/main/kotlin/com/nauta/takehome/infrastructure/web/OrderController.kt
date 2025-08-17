@@ -1,6 +1,7 @@
 package com.nauta.takehome.infrastructure.web
 
 import com.nauta.takehome.application.ContainerRepository
+import com.nauta.takehome.application.OrderContainerRepository
 import com.nauta.takehome.application.OrderRepository
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.Order
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 class OrderController(
     private val orderRepository: OrderRepository,
     private val containerRepository: ContainerRepository,
+    private val orderContainerRepository: OrderContainerRepository,
     private val tenantContext: TenantContext,
 ) {
     private val logger = LoggerFactory.getLogger(OrderController::class.java)
@@ -42,7 +44,7 @@ class OrderController(
 
         return try {
             val purchaseRef = PurchaseRef(purchaseId)
-            val containers = containerRepository.findByPurchaseRef(tenantId, purchaseRef)
+            val containers = orderContainerRepository.findContainersByPurchaseRef(tenantId, purchaseRef)
             ResponseEntity.ok(containers.map { it.toDto() })
         } catch (e: IllegalArgumentException) {
             logger.warn("Invalid purchase ID: $purchaseId", e)
@@ -57,7 +59,7 @@ private fun Order.toDto() =
         purchaseRef = purchaseRef.value,
         tenantId = tenantId,
         bookingRef = bookingRef?.value,
-        containerRef = containerRef?.value,
+        containerRef = null, // M:N relationship, not stored in order entity
         createdAt = createdAt.toString(),
         updatedAt = updatedAt.toString(),
     )
