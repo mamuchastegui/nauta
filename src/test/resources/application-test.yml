@@ -1,0 +1,54 @@
+spring:
+  profiles:
+    active: test
+  
+  datasource:
+    # Will be overridden by TestContainers
+    url: jdbc:postgresql://localhost:5432/nauta_test
+    username: test
+    password: test
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: none # Use Flyway instead
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+  
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+# Test-specific configuration
+app:
+  jwt:
+    secret: test-secret-key-for-testing-purposes-minimum-32-chars
+  
+  sqs:
+    # Mock SQS configuration for tests
+    endpoint: http://localhost:4566
+    ingest-queue-url: http://localhost:4566/queue/us-east-1/000000000000/test-ingest-queue
+    ingest-dlq-url: http://localhost:4566/queue/us-east-1/000000000000/test-ingest-dlq
+
+# Logging configuration for tests
+logging:
+  level:
+    com.nauta.takehome: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.testcontainers: INFO
+    org.springframework.test: INFO
+
+# Disable web security for easier testing
+spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+
+# Test database settings
+spring:
+  test:
+    database:
+      replace: none # Don't replace our TestContainers database
