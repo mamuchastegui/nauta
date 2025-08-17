@@ -2,6 +2,12 @@ package com.nauta.takehome.infrastructure.messaging
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.nauta.takehome.application.BookingData
+import com.nauta.takehome.application.ContainerData
+import com.nauta.takehome.application.IngestMessage
+import com.nauta.takehome.application.IngestService
+import com.nauta.takehome.application.InvoiceData
+import com.nauta.takehome.application.OrderData
 import kotlin.math.min
 import kotlin.math.pow
 import org.slf4j.LoggerFactory
@@ -20,8 +26,9 @@ import software.amazon.awssdk.services.sqs.model.SendMessageRequest
 class SqsIngestConsumer(
     private val sqsClient: SqsClient,
     private val objectMapper: ObjectMapper,
+    private val ingestService: IngestService,
     @Value("\${app.sqs.ingest-queue-url}") private val ingestQueueUrl: String,
-    @Value("\${app.sqs.ingest-dlq-url}") private val dlqUrl: String,
+    @Value("\${app.sqs.ingest-dlq-url:}") private val dlqUrl: String,
 ) {
     private val logger = LoggerFactory.getLogger(SqsIngestConsumer::class.java)
 
@@ -61,17 +68,61 @@ class SqsIngestConsumer(
             logger.info("Processing message: ${queueMessage.messageId} for tenant: ${queueMessage.tenantId}")
 
             // Parse rawPayload into IngestMessage and process it
-            // Implementation will follow in future iterations
-            logger.debug("Processing rawPayload for message: ${queueMessage.messageId}")
-
+            val ingestMessage = parseRawPayload(queueMessage.rawPayload, queueMessage.tenantId)
+            
+            // Process the message using IngestService
+            ingestService.processIngestMessage(ingestMessage)
+            
             deleteMessage(message)
-            logger.info("Successfully processed message: ${queueMessage.messageId}")
+            logger.info("Successfully processed message: ${queueMessage.messageId} for tenant: ${queueMessage.tenantId}")
         } catch (e: JsonProcessingException) {
             logger.error("Failed to parse message body for message: ${message.messageId()}", e)
             handleFailedMessage(message, e)
         } catch (e: IllegalArgumentException) {
             logger.error("Invalid message data for message: ${message.messageId()}", e)
             handleFailedMessage(message, e)
+        } catch (e: Exception) {
+            logger.error("Unexpected error processing message: ${message.messageId()}", e)
+            handleFailedMessage(message, e)
+        }
+    }
+
+    private fun parseRawPayload(rawPayload: String, tenantId: String): IngestMessage {
+        try {
+            // Parse the JSON structure from the rawPayload
+            val jsonNode = objectMapper.readTree(rawPayload)
+            
+            // Extract booking data
+            val booking = jsonNode.get("booking")?.let { bookingNode ->
+                BookingData(bookingNode.get("booking_ref").asText())
+            }
+            
+            // Extract orders data
+            val orders = jsonNode.get("orders")?.map { orderNode ->
+                val invoices = orderNode.get("invoices")?.map { invoiceNode ->
+                    InvoiceData(invoiceNode.get("invoice_ref").asText())
+                } ?: emptyList()
+                
+                OrderData(
+                    purchaseRef = orderNode.get("purchase_ref").asText(),
+                    invoices = invoices
+                )
+            } ?: emptyList()
+            
+            // Extract containers data
+            val containers = jsonNode.get("containers")?.map { containerNode ->
+                ContainerData(containerNode.get("container_ref").asText())
+            } ?: emptyList()
+            
+            return IngestMessage(
+                tenantId = tenantId,
+                booking = booking,
+                orders = orders,
+                containers = containers
+            )
+        } catch (e: Exception) {
+            logger.error("Failed to parse rawPayload: $rawPayload", e)
+            throw IllegalArgumentException("Invalid rawPayload format: ${e.message}", e)
         }
     }
 

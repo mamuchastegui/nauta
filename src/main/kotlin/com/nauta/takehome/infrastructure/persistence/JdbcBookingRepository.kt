@@ -3,6 +3,7 @@ package com.nauta.takehome.infrastructure.persistence
 import com.nauta.takehome.application.BookingRepository
 import com.nauta.takehome.domain.Booking
 import com.nauta.takehome.domain.BookingRef
+import java.sql.Timestamp
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.dao.EmptyResultDataAccessException
@@ -34,8 +35,8 @@ class JdbcBookingRepository(private val jdbcTemplate: JdbcTemplate) : BookingRep
             bookingRowMapper,
             bookingRef.value,
             tenantId,
-            now,
-            now,
+            Timestamp.from(now),
+            Timestamp.from(now),
         )!!
     }
 

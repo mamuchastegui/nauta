@@ -4,6 +4,7 @@ import com.nauta.takehome.application.InvoiceRepository
 import com.nauta.takehome.domain.Invoice
 import com.nauta.takehome.domain.InvoiceRef
 import com.nauta.takehome.domain.PurchaseRef
+import java.sql.Timestamp
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.dao.EmptyResultDataAccessException
@@ -39,8 +40,8 @@ class JdbcInvoiceRepository(private val jdbcTemplate: JdbcTemplate) : InvoiceRep
             invoiceRef.value,
             purchaseRef.value,
             tenantId,
-            now,
-            now,
+            Timestamp.from(now),
+            Timestamp.from(now),
         )!!
     }
 

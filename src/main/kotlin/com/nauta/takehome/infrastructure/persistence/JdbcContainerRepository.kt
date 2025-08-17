@@ -5,6 +5,7 @@ import com.nauta.takehome.domain.BookingRef
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.PurchaseRef
+import java.sql.Timestamp
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.dao.EmptyResultDataAccessException
@@ -40,8 +41,8 @@ class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : Containe
             containerRef.value,
             tenantId,
             bookingRef?.value,
-            now,
-            now,
+            Timestamp.from(now),
+            Timestamp.from(now),
         )!!
     }
 
