@@ -1,7 +1,4 @@
 spring:
-  profiles:
-    active: test
-  
   datasource:
     # Will be overridden by TestContainers
     url: jdbc:postgresql://localhost:5432/nauta_test
@@ -29,6 +26,9 @@ app:
     secret: test-secret-key-for-testing-purposes-minimum-32-chars
   
   sqs:
+    # Disable SQS consumer during tests
+    consumer:
+      enabled: false
     # Mock SQS configuration for tests
     endpoint: http://localhost:4566
     ingest-queue-url: http://localhost:4566/queue/us-east-1/000000000000/test-ingest-queue
@@ -47,8 +47,7 @@ logging:
 # Disable web security for easier testing
 spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
 
-# Test database settings
-spring:
-  test:
-    database:
-      replace: none # Don't replace our TestContainers database
+# Additional test settings
+test:
+  database:
+    replace: none # Don't replace our TestContainers database

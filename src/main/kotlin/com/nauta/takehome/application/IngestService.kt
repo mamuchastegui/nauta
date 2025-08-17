@@ -10,6 +10,7 @@ import com.nauta.takehome.domain.LinkingReason
 import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.OrderContainer
 import com.nauta.takehome.domain.PurchaseRef
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 @Service
@@ -20,6 +21,8 @@ class IngestService(
     private val invoiceRepository: InvoiceRepository,
     private val orderContainerRepository: OrderContainerRepository,
 ) {
+    private val logger = LoggerFactory.getLogger(IngestService::class.java)
+
     fun ingestEmail(payload: EmailPayload): IngestResult {
         return try {
             // Parse email payload and extract structured data
@@ -60,10 +63,11 @@ class IngestService(
         val tenantId = message.tenantId
 
         // Process booking if present
-        val booking = message.booking?.let { bookingData ->
-            val bookingRef = BookingRef(bookingData.bookingRef)
-            bookingRepository.upsertByRef(tenantId, bookingRef)
-        }
+        val booking =
+            message.booking?.let { bookingData ->
+                val bookingRef = BookingRef(bookingData.bookingRef)
+                bookingRepository.upsertByRef(tenantId, bookingRef)
+            }
 
         // Process orders and their invoices
         val processedOrders = mutableListOf<Order>()
@@ -135,20 +139,30 @@ class IngestService(
     ) {
         orders.forEach { order ->
             containers.forEach { container ->
-                if (order.id != null && container.id != null) {
-                    try {
-                        orderContainerRepository.linkOrderAndContainer(
-                            tenantId = tenantId,
-                            orderId = order.id,
-                            containerId = container.id,
-                            linkingReason = linkingReason,
-                        )
-                    } catch (e: Exception) {
-                        // Link might already exist, which is fine
-                        // Log and continue
-                    }
-                }
+                linkOrderAndContainerSafely(tenantId, order, container, linkingReason)
             }
+        }
+    }
+
+    private fun linkOrderAndContainerSafely(
+        tenantId: String,
+        order: Order,
+        container: Container,
+        linkingReason: LinkingReason,
+    ) {
+        if (order.id == null || container.id == null) return
+
+        try {
+            orderContainerRepository.linkOrderAndContainer(
+                tenantId = tenantId,
+                orderId = order.id,
+                containerId = container.id,
+                linkingReason = linkingReason,
+            )
+        } catch (e: org.springframework.dao.DuplicateKeyException) {
+            logger.debug("Link already exists between order ${order.id} and container ${container.id}", e)
+        } catch (e: org.springframework.dao.DataIntegrityViolationException) {
+            logger.warn("Data integrity violation linking order ${order.id} to container ${container.id}", e)
         }
     }
 }

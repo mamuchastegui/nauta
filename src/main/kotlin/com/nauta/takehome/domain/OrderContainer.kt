@@ -19,5 +19,5 @@ enum class LinkingReason {
     MANUAL,
     AI_INFERENCE,
     TEMPORAL_CORRELATION,
-    SYSTEM_MIGRATION
+    SYSTEM_MIGRATION,
 }

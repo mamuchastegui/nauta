@@ -1,6 +1,7 @@
 package com.nauta.takehome.infrastructure.messaging
 
 import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.nauta.takehome.application.BookingData
 import com.nauta.takehome.application.ContainerData
@@ -12,6 +13,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import software.amazon.awssdk.core.exception.SdkException
@@ -23,6 +25,7 @@ import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest
 
 @Component
+@ConditionalOnProperty(name = ["app.sqs.consumer.enabled"], havingValue = "true", matchIfMissing = true)
 class SqsIngestConsumer(
     private val sqsClient: SqsClient,
     private val objectMapper: ObjectMapper,
@@ -100,41 +103,17 @@ class SqsIngestConsumer(
         tenantId: String,
     ): IngestMessage {
         try {
-            // Parse the JSON structure from the rawPayload
             val jsonNode = objectMapper.readTree(rawPayload)
+            val booking = parseBookingData(jsonNode)
 
-            // Extract booking data - now a direct string
-            val booking =
-                jsonNode.get("booking")?.let { bookingNode ->
-                    if (bookingNode.isTextual) {
-                        // New format: "booking": "BK123"
-                        BookingData(bookingNode.asText())
-                    } else {
-                        // Legacy format: "booking": {"booking_ref": "BK123456"}
-                        BookingData(bookingNode.get("booking_ref").asText())
-                    }
-                }
-
-            // Extract orders data - new field names
+            // Extract orders data
             val orders =
                 jsonNode.get("orders")?.map { orderNode ->
-                    val purchaseRef = if (orderNode.has("purchase")) {
-                        // New format: "purchase": "PO123"
-                        orderNode.get("purchase").asText()
-                    } else {
-                        // Legacy format: "purchase_ref": "PO789012"
-                        orderNode.get("purchase_ref").asText()
-                    }
+                    val purchaseRef = orderNode.get("purchase").asText()
 
                     val invoices =
                         orderNode.get("invoices")?.map { invoiceNode ->
-                            val invoiceRef = if (invoiceNode.has("invoice")) {
-                                // New format: "invoice": "IN123"
-                                invoiceNode.get("invoice").asText()
-                            } else {
-                                // Legacy format: "invoice_ref": "INV345678"
-                                invoiceNode.get("invoice_ref").asText()
-                            }
+                            val invoiceRef = invoiceNode.get("invoice").asText()
                             InvoiceData(invoiceRef)
                         } ?: emptyList()
 
@@ -144,16 +123,10 @@ class SqsIngestConsumer(
                     )
                 } ?: emptyList()
 
-            // Extract containers data - new field names
+            // Extract containers data
             val containers =
                 jsonNode.get("containers")?.map { containerNode ->
-                    val containerRef = if (containerNode.has("container")) {
-                        // New format: "container": "MEDU1234567"
-                        containerNode.get("container").asText()
-                    } else {
-                        // Legacy format: "container_ref": "ABCD1234567"
-                        containerNode.get("container_ref").asText()
-                    }
+                    val containerRef = containerNode.get("container").asText()
                     ContainerData(containerRef)
                 } ?: emptyList()
 
@@ -172,6 +145,12 @@ class SqsIngestConsumer(
             // Need broad catch for unknown JSON parsing errors
             logger.error("Error parsing rawPayload: $rawPayload", e)
             throw IllegalArgumentException("Invalid rawPayload format: ${e.message}", e)
+        }
+    }
+
+    private fun parseBookingData(jsonNode: JsonNode): BookingData? {
+        return jsonNode.get("booking")?.let { bookingNode ->
+            BookingData(bookingNode.asText())
         }
     }
 

@@ -236,12 +236,12 @@ curl -X POST http://localhost:8080/api/email \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "booking": {"booking_ref": "BK999888"},
+    "booking": "BK999888",
     "orders": [{
-      "purchase_ref": "PO999888",
-      "invoices": [{"invoice_ref": "INV999888"}]
+      "purchase": "PO999888",
+      "invoices": [{"invoice": "INV999888"}]
     }],
-    "containers": [{"container_ref": "TEST1234567"}]
+    "containers": [{"container": "TEST1234567"}]
   }'
 
 # 3. Wait a few seconds for async processing
@@ -275,9 +275,9 @@ curl -X POST http://localhost:8080/api/email \
   -H "Authorization: Bearer $TENANT_A_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "booking": {"booking_ref": "BK_TENANT_A"},
-    "orders": [{"purchase_ref": "PO_TENANT_A", "invoices": [{"invoice_ref": "INV_TENANT_A"}]}],
-    "containers": [{"container_ref": "CONTA111111"}]
+    "booking": "BK_TENANT_A",
+    "orders": [{"purchase": "PO_TENANT_A", "invoices": [{"invoice": "INV_TENANT_A"}]}],
+    "containers": [{"container": "CONTA111111"}]
   }'
 
 # Insert data for Tenant B
@@ -285,9 +285,9 @@ curl -X POST http://localhost:8080/api/email \
   -H "Authorization: Bearer $TENANT_B_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "booking": {"booking_ref": "BK_TENANT_B"},
-    "orders": [{"purchase_ref": "PO_TENANT_B", "invoices": [{"invoice_ref": "INV_TENANT_B"}]}],
-    "containers": [{"container_ref": "CONTB222222"}]
+    "booking": "BK_TENANT_B",
+    "orders": [{"purchase": "PO_TENANT_B", "invoices": [{"invoice": "INV_TENANT_B"}]}],
+    "containers": [{"container": "CONTB222222"}]
   }'
 
 # Verify Tenant A only sees their data
@@ -329,7 +329,7 @@ curl -X POST http://localhost:8080/api/email \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "containers": [{"container_ref": "INVALID"}]
+    "containers": [{"container": "INVALID"}]
   }'
 # Response: 400 Bad Request with validation details
 ```

@@ -110,9 +110,9 @@ curl -X POST http://localhost:8080/api/email \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "booking": {"booking_ref": "BK123456"},
-    "orders": [{"purchase_ref": "PO789012", "invoices": [{"invoice_ref": "INV345678"}]}],
-    "containers": [{"container_ref": "ABCD1234567"}]
+    "booking": "BK123456",
+    "orders": [{"purchase": "PO789012", "invoices": [{"invoice": "INV345678"}]}],
+    "containers": [{"container": "ABCD1234567"}]
   }'
 
 # Query results
@@ -160,7 +160,6 @@ See [Development Commands](docs/DEVELOPMENT.md) for complete command reference.
 - [x] **Database migrations** with Flyway schema management
 - [x] **M:N relationship model** with order_containers linking table
 - [x] **Progressive linking algorithms** with confidence scoring
-- [x] **Challenge API compliance** with backward compatibility support
 - [x] **Enhanced error handling** with specific exception types
 - [x] **Repository implementations** with complete upsert logic
 
@@ -168,7 +167,7 @@ See [Development Commands](docs/DEVELOPMENT.md) for complete command reference.
 
 #### Priority 1: Core Testing
 1. **Integration Tests** - End-to-end testing with TestContainers for M:N relationship validation
-2. **API Contract Tests** - Verify challenge format compliance and backward compatibility
+2. **API Contract Tests** - Verify format compliance
 3. **Multi-tenant Isolation Tests** - Ensure complete data separation between tenants
 4. **Progressive Linking Tests** - Validate relationship inference algorithms
 
@@ -191,7 +190,6 @@ See [Development Commands](docs/DEVELOPMENT.md) for complete command reference.
 - **Multi-tenancy**: JWT-based tenant scoping for data isolation  
 - **Flexible Relationships**: M:N model enables complex logistics scenarios
 - **Progressive Linking**: Smart algorithms infer relationships with confidence scoring
-- **API Compliance**: Matches challenge requirements with backward compatibility
 - **Message Queuing**: Asynchronous processing with SQS, DLQ, and retry logic
 - **DevOps Ready**: Docker Compose for local development with LocalStack
 - **Production Foundation**: Scalable architecture ready for event-driven evolution

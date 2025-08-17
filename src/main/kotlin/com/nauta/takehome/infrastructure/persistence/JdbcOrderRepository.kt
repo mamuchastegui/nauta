@@ -2,7 +2,6 @@ package com.nauta.takehome.infrastructure.persistence
 
 import com.nauta.takehome.application.OrderRepository
 import com.nauta.takehome.domain.BookingRef
-import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.PurchaseRef
 import java.sql.Timestamp

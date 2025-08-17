@@ -33,5 +33,5 @@ COMMENT ON COLUMN order_containers.linking_reason IS 'Reason for linking: bookin
 COMMENT ON COLUMN order_containers.confidence_score IS 'Confidence level of the relationship (0.00-1.00)';
 
 -- Remove container_ref from orders table since we now use M:N relationship
--- Note: We keep booking_ref for backward compatibility and as a fallback linking mechanism
+-- Note: We keep booking_ref as a primary linking mechanism
 ALTER TABLE orders DROP COLUMN IF EXISTS container_ref;

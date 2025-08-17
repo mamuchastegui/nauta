@@ -1,8 +1,6 @@
 package com.nauta.takehome.infrastructure.persistence
 
-import com.nauta.takehome.application.ContainerRepository
 import com.nauta.takehome.application.OrderContainerRepository
-import com.nauta.takehome.application.OrderRepository
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.LinkingReason
@@ -10,7 +8,6 @@ import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.OrderContainer
 import com.nauta.takehome.domain.PurchaseRef
 import java.math.BigDecimal
-import java.sql.Timestamp
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.jdbc.core.JdbcTemplate
@@ -20,8 +17,6 @@ import org.springframework.stereotype.Repository
 @Repository
 class JdbcOrderContainerRepository(
     private val jdbcTemplate: JdbcTemplate,
-    private val orderRepository: OrderRepository,
-    private val containerRepository: ContainerRepository,
 ) : OrderContainerRepository {
     private val logger = LoggerFactory.getLogger(JdbcOrderContainerRepository::class.java)
 
@@ -54,10 +49,10 @@ class JdbcOrderContainerRepository(
                 BigDecimal("1.00"),
             )!!
         } catch (e: DuplicateKeyException) {
-            logger.debug("Relationship already exists between order $orderId and container $containerId")
-            // Return existing relationship
-            findRelationship(tenantId, orderId, containerId)
-                ?: throw IllegalStateException("Failed to create or find relationship")
+            logger.debug("Relationship already exists between order $orderId and container $containerId", e)
+            val existingRelationship = findRelationship(tenantId, orderId, containerId)
+            checkNotNull(existingRelationship) { "Failed to create or find relationship" }
+            existingRelationship
         }
     }
 
@@ -162,7 +157,11 @@ class JdbcOrderContainerRepository(
 
         return try {
             jdbcTemplate.queryForObject(sql, orderContainerRowMapper, tenantId, orderId, containerId)
-        } catch (e: Exception) {
+        } catch (e: org.springframework.dao.EmptyResultDataAccessException) {
+            logger.debug("No relationship found for order $orderId and container $containerId in tenant $tenantId", e)
+            null
+        } catch (e: org.springframework.dao.DataAccessException) {
+            logger.warn("Database error finding relationship for order $orderId and container $containerId", e)
             null
         }
     }

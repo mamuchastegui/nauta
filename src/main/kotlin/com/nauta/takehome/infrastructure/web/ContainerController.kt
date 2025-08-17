@@ -2,7 +2,6 @@ package com.nauta.takehome.infrastructure.web
 
 import com.nauta.takehome.application.ContainerRepository
 import com.nauta.takehome.application.OrderContainerRepository
-import com.nauta.takehome.application.OrderRepository
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.Order
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/containers")
 class ContainerController(
     private val containerRepository: ContainerRepository,
-    private val orderRepository: OrderRepository,
     private val orderContainerRepository: OrderContainerRepository,
     private val tenantContext: TenantContext,
 ) {
@@ -69,7 +67,7 @@ private fun Order.toDto() =
         purchaseRef = purchaseRef.value,
         tenantId = tenantId,
         bookingRef = bookingRef?.value,
-        containerRef = null, // M:N relationship, not stored in order entity
+        containerRef = null,
         createdAt = createdAt.toString(),
         updatedAt = updatedAt.toString(),
     )

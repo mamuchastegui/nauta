@@ -1,6 +1,5 @@
 package com.nauta.takehome.integration
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.nauta.takehome.application.ContainerRepository
 import com.nauta.takehome.application.OrderContainerRepository
 import com.nauta.takehome.application.OrderRepository
@@ -8,10 +7,13 @@ import com.nauta.takehome.domain.BookingRef
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.LinkingReason
 import com.nauta.takehome.domain.PurchaseRef
-import com.nauta.takehome.infrastructure.web.EmailIngestRequest
 import com.nauta.takehome.infrastructure.web.ContainerRequest
-import com.nauta.takehome.infrastructure.web.OrderRequest
+import com.nauta.takehome.infrastructure.web.EmailIngestRequest
 import com.nauta.takehome.infrastructure.web.InvoiceRequest
+import com.nauta.takehome.infrastructure.web.OrderRequest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -30,24 +32,17 @@ import org.springframework.test.context.DynamicPropertySource
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 @ActiveProfiles("test")
 @AutoConfigureWebMvc
 class LogisticsIntegrationTest {
-
     @LocalServerPort
     private var port: Int = 0
 
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var orderRepository: OrderRepository
@@ -61,10 +56,11 @@ class LogisticsIntegrationTest {
     companion object {
         @Container
         @JvmStatic
-        val postgres = PostgreSQLContainer("postgres:15")
-            .withDatabaseName("nauta_test")
-            .withUsername("test")
-            .withPassword("test")
+        val postgres =
+            PostgreSQLContainer("postgres:15")
+                .withDatabaseName("nauta_test")
+                .withUsername("test")
+                .withPassword("test")
 
         @DynamicPropertySource
         @JvmStatic
@@ -75,7 +71,11 @@ class LogisticsIntegrationTest {
         }
 
         // Test JWT token with tenant-123
-        private const val TEST_JWT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZW5hbnRfaWQiOiJ0ZW5hbnQtMTIzIiwic3ViIjoidXNlci0xMjMiLCJpYXQiOjE2NDA5OTUyMDAsImV4cCI6MTk0MDk5ODgwMH0.cCuxJyQwgKk981YpKTP-eEgmWx2pOswibxzjlZrDEHw"
+        private const val TEST_JWT_TOKEN =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
+                "eyJ0ZW5hbnRfaWQiOiJ0ZW5hbnQtMTIzIiwic3ViIjoidXNlci0xMjMiLCJpYXQiOjE2NDA5OTUyMDAsI" +
+                "mV4cCI6MTk0MDk5ODgwMH0." +
+                "cCuxJyQwgKk981YpKTP-eEgmWx2pOswibxzjlZrDEHw"
         private const val TENANT_ID = "tenant-123"
     }
 
@@ -98,9 +98,9 @@ class LogisticsIntegrationTest {
         // Clean up in correct order due to foreign key constraints
         orderContainerRepository.findAllRelationships(TENANT_ID).forEach { relationship ->
             orderContainerRepository.unlinkOrderAndContainer(
-                TENANT_ID, 
-                relationship.orderId, 
-                relationship.containerId
+                TENANT_ID,
+                relationship.orderId,
+                relationship.containerId,
             )
         }
         // Additional cleanup would be done here for orders, containers, etc.
@@ -109,25 +109,29 @@ class LogisticsIntegrationTest {
     @Test
     fun `should handle complete logistics flow with M-N relationships`() {
         // Given: Email ingestion request with booking, orders, and containers
-        val request = EmailIngestRequest(
-            booking = "BK123456",
-            orders = listOf(
-                OrderRequest(
-                    purchase = "PO789012",
-                    invoices = listOf(InvoiceRequest(invoice = "INV345678"))
-                )
-            ),
-            containers = listOf(
-                ContainerRequest(container = "ABCD1234567")
+        val request =
+            EmailIngestRequest(
+                booking = "BK123456",
+                orders =
+                    listOf(
+                        OrderRequest(
+                            purchase = "PO789012",
+                            invoices = listOf(InvoiceRequest(invoice = "INV345678")),
+                        ),
+                    ),
+                containers =
+                    listOf(
+                        ContainerRequest(container = "ABCD1234567"),
+                    ),
             )
-        )
 
         // When: Submit email ingestion
-        val response = restTemplate.postForEntity(
-            "${baseUrl()}/api/email",
-            HttpEntity(request, authHeaders()),
-            Map::class.java
-        )
+        val response =
+            restTemplate.postForEntity(
+                "${baseUrl()}/api/email",
+                HttpEntity(request, authHeaders()),
+                Map::class.java,
+            )
 
         // Then: Email accepted
         assertEquals(HttpStatus.ACCEPTED, response.statusCode)
@@ -164,12 +168,13 @@ class LogisticsIntegrationTest {
         val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("CONT789012"), BookingRef("BK456"))
 
         // When: Link them explicitly
-        val relationship = orderContainerRepository.linkOrderAndContainer(
-            tenantId = TENANT_ID,
-            orderId = order.id!!,
-            containerId = container.id!!,
-            linkingReason = LinkingReason.BOOKING_MATCH
-        )
+        val relationship =
+            orderContainerRepository.linkOrderAndContainer(
+                tenantId = TENANT_ID,
+                orderId = order.id!!,
+                containerId = container.id!!,
+                linkingReason = LinkingReason.BOOKING_MATCH,
+            )
 
         // Then: Relationship created with correct reason
         assertEquals(LinkingReason.BOOKING_MATCH, relationship.linkingReason)
@@ -182,20 +187,21 @@ class LogisticsIntegrationTest {
         // Given: Setup test data with relationships
         val order = orderRepository.upsertByRef(TENANT_ID, PurchaseRef("PO999"), BookingRef("BK999"))
         val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("CONT999012"), BookingRef("BK999"))
-        
+
         orderContainerRepository.linkOrderAndContainer(
             tenantId = TENANT_ID,
             orderId = order.id!!,
-            containerId = container.id!!
+            containerId = container.id!!,
         )
 
         // When: Query containers for order
-        val containersResponse = restTemplate.exchange(
-            "${baseUrl()}/api/orders/PO999/containers",
-            HttpMethod.GET,
-            HttpEntity<Void>(authHeaders()),
-            List::class.java
-        )
+        val containersResponse =
+            restTemplate.exchange(
+                "${baseUrl()}/api/orders/PO999/containers",
+                HttpMethod.GET,
+                HttpEntity<Void>(authHeaders()),
+                List::class.java,
+            )
 
         // Then: Container found
         assertEquals(HttpStatus.OK, containersResponse.statusCode)
@@ -203,12 +209,13 @@ class LogisticsIntegrationTest {
         assertEquals(1, containers.size)
 
         // When: Query orders for container
-        val ordersResponse = restTemplate.exchange(
-            "${baseUrl()}/api/containers/CONT999012/orders",
-            HttpMethod.GET,
-            HttpEntity<Void>(authHeaders()),
-            List::class.java
-        )
+        val ordersResponse =
+            restTemplate.exchange(
+                "${baseUrl()}/api/containers/CONT999012/orders",
+                HttpMethod.GET,
+                HttpEntity<Void>(authHeaders()),
+                List::class.java,
+            )
 
         // Then: Order found
         assertEquals(HttpStatus.OK, ordersResponse.statusCode)
@@ -223,17 +230,19 @@ class LogisticsIntegrationTest {
         val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("CONT777012"), BookingRef("BK777"))
 
         // When: Link them twice
-        val relationship1 = orderContainerRepository.linkOrderAndContainer(
-            tenantId = TENANT_ID,
-            orderId = order.id!!,
-            containerId = container.id!!
-        )
+        val relationship1 =
+            orderContainerRepository.linkOrderAndContainer(
+                tenantId = TENANT_ID,
+                orderId = order.id!!,
+                containerId = container.id!!,
+            )
 
-        val relationship2 = orderContainerRepository.linkOrderAndContainer(
-            tenantId = TENANT_ID,
-            orderId = order.id!!,
-            containerId = container.id!!
-        )
+        val relationship2 =
+            orderContainerRepository.linkOrderAndContainer(
+                tenantId = TENANT_ID,
+                orderId = order.id!!,
+                containerId = container.id!!,
+            )
 
         // Then: Same relationship returned (no duplicates)
         assertEquals(relationship1.orderId, relationship2.orderId)
@@ -241,9 +250,10 @@ class LogisticsIntegrationTest {
 
         // Verify: Only one relationship exists
         val allRelationships = orderContainerRepository.findAllRelationships(TENANT_ID)
-        val matchingRelationships = allRelationships.filter { 
-            it.orderId == order.id && it.containerId == container.id 
-        }
+        val matchingRelationships =
+            allRelationships.filter {
+                it.orderId == order.id && it.containerId == container.id
+            }
         assertEquals(1, matchingRelationships.size)
     }
 }
