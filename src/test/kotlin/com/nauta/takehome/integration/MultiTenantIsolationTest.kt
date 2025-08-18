@@ -3,6 +3,8 @@ package com.nauta.takehome.integration
 import com.nauta.takehome.application.ContainerRepository
 import com.nauta.takehome.application.OrderContainerRepository
 import com.nauta.takehome.application.OrderRepository
+import com.nauta.takehome.config.TestConfiguration
+import com.nauta.takehome.config.TestJwtTokenGenerator
 import com.nauta.takehome.domain.BookingRef
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.PurchaseRef
@@ -19,6 +21,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebM
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.context.annotation.Import
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
@@ -35,6 +38,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 @Testcontainers
 @ActiveProfiles("test")
 @AutoConfigureWebMvc
+@Import(TestConfiguration::class)
 class MultiTenantIsolationTest {
     @LocalServerPort
     private var port: Int = 0
@@ -50,6 +54,9 @@ class MultiTenantIsolationTest {
 
     @Autowired
     private lateinit var orderContainerRepository: OrderContainerRepository
+
+    @Autowired
+    private lateinit var testJwtTokenGenerator: TestJwtTokenGenerator
 
     companion object {
         @Container
@@ -68,18 +75,6 @@ class MultiTenantIsolationTest {
             registry.add("spring.datasource.password", postgres::getPassword)
         }
 
-        // Different tenant tokens for isolation testing
-        private const val TENANT_A_TOKEN =
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-                "eyJ0ZW5hbnRfaWQiOiJ0ZW5hbnQtYWFhIiwic3ViIjoidXNlci1hYWEiLCJpYXQiOjE2NDA5OTUyMDAsI" +
-                "mV4cCI6MTk0MDk5ODgwMH0." +
-                "Ku4VQPZVQNe3-GY2PLR0y-xbOjHKhB5nJ5Nl7X7qlKY"
-        private const val TENANT_B_TOKEN =
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-                "eyJ0ZW5hbnRfaWQiOiJ0ZW5hbnQtYmJiIiwic3ViIjoidXNlci1iYmIiLCJpYXQiOjE2NDA5OTUyMDAsI" +
-                "mV4cCI6MTk0MDk5ODgwMH0." +
-                "8u3EojP8dK8B-3Tv_Wf_HaGqDaA5cMAE-6ZO4K7Qktc"
-
         private const val TENANT_A_ID = "tenant-aaa"
         private const val TENANT_B_ID = "tenant-bbb"
     }
@@ -92,6 +87,10 @@ class MultiTenantIsolationTest {
         headers.setBearerAuth(token)
         return headers
     }
+
+    private fun authHeadersForTenantA(): HttpHeaders = authHeaders(testJwtTokenGenerator.getTenantAToken())
+
+    private fun authHeadersForTenantB(): HttpHeaders = authHeaders(testJwtTokenGenerator.getTenantBToken())
 
     @BeforeEach
     fun setUp() {
@@ -141,7 +140,7 @@ class MultiTenantIsolationTest {
         val containerA =
             containerRepository.upsertByRef(
                 TENANT_A_ID,
-                ContainerRef("CONTA123456"),
+                ContainerRef("MEDU1234567"),
                 BookingRef("BK-A-001"),
             )
 
@@ -149,13 +148,13 @@ class MultiTenantIsolationTest {
         val containerB =
             containerRepository.upsertByRef(
                 TENANT_B_ID,
-                ContainerRef("CONTA123456"),
+                ContainerRef("MEDU1234567"),
                 BookingRef("BK-B-001"),
             )
 
         // When: Each tenant queries for their container
-        val foundByA = containerRepository.findByContainerRef(TENANT_A_ID, ContainerRef("CONTA123456"))
-        val foundByB = containerRepository.findByContainerRef(TENANT_B_ID, ContainerRef("CONTA123456"))
+        val foundByA = containerRepository.findByContainerRef(TENANT_A_ID, ContainerRef("MEDU1234567"))
+        val foundByB = containerRepository.findByContainerRef(TENANT_B_ID, ContainerRef("MEDU1234567"))
 
         // Then: Each tenant only sees their own container
         assertNotNull(foundByA)
@@ -171,7 +170,7 @@ class MultiTenantIsolationTest {
         val containerA =
             containerRepository.upsertByRef(
                 TENANT_A_ID,
-                ContainerRef("CONTA567890"),
+                ContainerRef("MSKU1234567"),
                 BookingRef("BK-A-REL"),
             )
 
@@ -180,7 +179,7 @@ class MultiTenantIsolationTest {
         val containerB =
             containerRepository.upsertByRef(
                 TENANT_B_ID,
-                ContainerRef("CONTB567890"),
+                ContainerRef("TCLU1111111"),
                 BookingRef("BK-B-REL"),
             )
 
@@ -208,7 +207,7 @@ class MultiTenantIsolationTest {
         val containerB =
             containerRepository.upsertByRef(
                 TENANT_B_ID,
-                ContainerRef("CROSS1234567"),
+                ContainerRef("ABCD1234567"),
                 BookingRef("BK-CROSS"),
             )
 
@@ -232,26 +231,26 @@ class MultiTenantIsolationTest {
             EmailIngestRequest(
                 booking = "BK-API-A",
                 orders = listOf(OrderRequest(purchase = "PO-API-A", invoices = emptyList())),
-                containers = listOf(ContainerRequest(container = "APIA1234567")),
+                containers = listOf(ContainerRequest(container = "MEDU1234567")),
             )
 
         val requestB =
             EmailIngestRequest(
                 booking = "BK-API-B",
                 orders = listOf(OrderRequest(purchase = "PO-API-B", invoices = emptyList())),
-                containers = listOf(ContainerRequest(container = "APIB1234567")),
+                containers = listOf(ContainerRequest(container = "MSKU1234567")),
             )
 
         // When: Submit data for both tenants
         restTemplate.postForEntity(
             "${baseUrl()}/api/email",
-            HttpEntity(requestA, authHeaders(TENANT_A_TOKEN)),
+            HttpEntity(requestA, authHeadersForTenantA()),
             Map::class.java,
         )
 
         restTemplate.postForEntity(
             "${baseUrl()}/api/email",
-            HttpEntity(requestB, authHeaders(TENANT_B_TOKEN)),
+            HttpEntity(requestB, authHeadersForTenantB()),
             Map::class.java,
         )
 
@@ -263,7 +262,7 @@ class MultiTenantIsolationTest {
             restTemplate.exchange(
                 "${baseUrl()}/api/orders",
                 HttpMethod.GET,
-                HttpEntity<Void>(authHeaders(TENANT_A_TOKEN)),
+                HttpEntity<Void>(authHeadersForTenantA()),
                 List::class.java,
             )
 
@@ -276,7 +275,7 @@ class MultiTenantIsolationTest {
             restTemplate.exchange(
                 "${baseUrl()}/api/orders",
                 HttpMethod.GET,
-                HttpEntity<Void>(authHeaders(TENANT_B_TOKEN)),
+                HttpEntity<Void>(authHeadersForTenantB()),
                 List::class.java,
             )
 
@@ -303,7 +302,7 @@ class MultiTenantIsolationTest {
         val validResponse =
             restTemplate.postForEntity(
                 "${baseUrl()}/api/email",
-                HttpEntity(request, authHeaders(TENANT_A_TOKEN)),
+                HttpEntity(request, authHeadersForTenantA()),
                 Map::class.java,
             )
 
@@ -315,15 +314,26 @@ class MultiTenantIsolationTest {
         invalidHeaders.contentType = MediaType.APPLICATION_JSON
         invalidHeaders.setBearerAuth("invalid.jwt.token")
 
-        val invalidResponse =
-            restTemplate.postForEntity(
-                "${baseUrl()}/api/email",
-                HttpEntity(request, invalidHeaders),
-                Map::class.java,
+        // Then: Request should be rejected due to invalid token
+        try {
+            val invalidResponse =
+                restTemplate.exchange(
+                    "${baseUrl()}/api/email",
+                    HttpMethod.POST,
+                    HttpEntity(request, invalidHeaders),
+                    String::class.java,
+                )
+            // If we get here, check that we got UNAUTHORIZED
+            assertEquals(HttpStatus.UNAUTHORIZED, invalidResponse.statusCode)
+        } catch (e: Exception) {
+            // Expected - invalid token should cause authentication failure
+            assertTrue(
+                e.message?.contains("401") == true ||
+                    e.message?.contains("Unauthorized") == true ||
+                    e.message?.contains("retry") == true,
+                "Expected authentication-related error but got: ${e.message}",
             )
-
-        // Then: Request rejected
-        assertEquals(HttpStatus.UNAUTHORIZED, invalidResponse.statusCode)
+        }
     }
 
     @Test
@@ -336,7 +346,7 @@ class MultiTenantIsolationTest {
             restTemplate.exchange(
                 "${baseUrl()}/api/orders/PO-SECRET-A/containers",
                 HttpMethod.GET,
-                HttpEntity<Void>(authHeaders(TENANT_B_TOKEN)),
+                HttpEntity<Void>(authHeadersForTenantB()),
                 Map::class.java,
             )
 

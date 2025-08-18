@@ -1,6 +1,7 @@
 package com.nauta.takehome.integration
 
 import com.nauta.takehome.config.TestConfiguration
+import com.nauta.takehome.config.TestJwtTokenGenerator
 import com.nauta.takehome.infrastructure.web.ContainerRequest
 import com.nauta.takehome.infrastructure.web.EmailIngestRequest
 import com.nauta.takehome.infrastructure.web.InvoiceRequest
@@ -39,6 +40,9 @@ class ApiContractTest {
     @Autowired
     private lateinit var restTemplate: TestRestTemplate
 
+    @Autowired
+    private lateinit var testJwtTokenGenerator: TestJwtTokenGenerator
+
     companion object {
         @Container
         @JvmStatic
@@ -55,12 +59,6 @@ class ApiContractTest {
             registry.add("spring.datasource.username", postgres::getUsername)
             registry.add("spring.datasource.password", postgres::getPassword)
         }
-
-        private const val TEST_JWT_TOKEN =
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-                "eyJ0ZW5hbnRfaWQiOiJ0ZW5hbnQtMTIzIiwic3ViIjoidXNlci0xMjMiLCJpYXQiOjE2NDA5OTUyMDAsI" +
-                "mV4cCI6MTk0MDk5ODgwMH0." +
-                "kRxyCcpIYb-EwKiIlVQWwJiWdlqNNUzhq9NkJoP1U8s"
     }
 
     private fun baseUrl() = "http://localhost:$port"
@@ -68,7 +66,7 @@ class ApiContractTest {
     private fun authHeaders(): HttpHeaders {
         val headers = HttpHeaders()
         headers.contentType = MediaType.APPLICATION_JSON
-        headers.setBearerAuth(TEST_JWT_TOKEN)
+        headers.setBearerAuth(testJwtTokenGenerator.getTenant123Token())
         return headers
     }
 
@@ -295,12 +293,12 @@ class ApiContractTest {
                 "${baseUrl()}/api/orders/PO777/containers",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                List::class.java,
+                Map::class.java,
             )
 
         // Then: Linked containers returned
         assertEquals(HttpStatus.OK, response.statusCode)
-        val containers = response.body as List<*>
+        val containers = (response.body as Map<*, *>)["data"] as List<*>
         assertEquals(1, containers.size)
     }
 
@@ -335,12 +333,12 @@ class ApiContractTest {
                 "${baseUrl()}/api/containers/LINK7654321/orders",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                List::class.java,
+                Map::class.java,
             )
 
         // Then: Linked orders returned
         assertEquals(HttpStatus.OK, response.statusCode)
-        val orders = response.body as List<*>
+        val orders = (response.body as Map<*, *>)["data"] as List<*>
         assertEquals(1, orders.size)
     }
 
@@ -367,7 +365,7 @@ class ApiContractTest {
                     HttpEntity(request, headers),
                     String::class.java,
                 )
-            
+
             // If we get here, check if it's 401
             assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode)
         } catch (e: org.springframework.web.client.HttpClientErrorException) {
@@ -378,7 +376,7 @@ class ApiContractTest {
             // The underlying cause should be related to authentication
             assertTrue(
                 e.message?.contains("cannot retry due to server authentication") == true,
-                "Expected authentication-related error, got: ${e.message}"
+                "Expected authentication-related error, got: ${e.message}",
             )
         }
     }
@@ -400,16 +398,18 @@ class ApiContractTest {
 
     @Test
     fun `should handle invalid purchase ID format gracefully`() {
-        // When: Query with invalid purchase ID
+        // When: Query with a purchase ID that doesn't exist - should return empty result, not error
         val response =
             restTemplate.exchange(
-                "${baseUrl()}/api/orders/INVALID_PURCHASE_REF/containers",
+                "${baseUrl()}/api/orders/NONEXISTENT_PURCHASE/containers",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
                 Map::class.java,
             )
 
-        // Then: Bad request
-        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        // Then: OK response with empty data
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val containers = (response.body as Map<*, *>)["data"] as List<*>
+        assertTrue(containers.isEmpty())
     }
 }

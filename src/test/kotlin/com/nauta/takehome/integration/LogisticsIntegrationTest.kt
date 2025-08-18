@@ -3,6 +3,8 @@ package com.nauta.takehome.integration
 import com.nauta.takehome.application.ContainerRepository
 import com.nauta.takehome.application.OrderContainerRepository
 import com.nauta.takehome.application.OrderRepository
+import com.nauta.takehome.config.TestConfiguration
+import com.nauta.takehome.config.TestJwtTokenGenerator
 import com.nauta.takehome.domain.BookingRef
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.LinkingReason
@@ -21,6 +23,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebM
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.boot.test.web.server.LocalServerPort
+import org.springframework.context.annotation.Import
 import org.springframework.http.HttpEntity
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpMethod
@@ -37,6 +40,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 @Testcontainers
 @ActiveProfiles("test")
 @AutoConfigureWebMvc
+@Import(TestConfiguration::class)
 class LogisticsIntegrationTest {
     @LocalServerPort
     private var port: Int = 0
@@ -52,6 +56,9 @@ class LogisticsIntegrationTest {
 
     @Autowired
     private lateinit var orderContainerRepository: OrderContainerRepository
+
+    @Autowired
+    private lateinit var testJwtTokenGenerator: TestJwtTokenGenerator
 
     companion object {
         @Container
@@ -70,12 +77,6 @@ class LogisticsIntegrationTest {
             registry.add("spring.datasource.password", postgres::getPassword)
         }
 
-        // Test JWT token with tenant-123
-        private const val TEST_JWT_TOKEN =
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
-                "eyJ0ZW5hbnRfaWQiOiJ0ZW5hbnQtMTIzIiwic3ViIjoidXNlci0xMjMiLCJpYXQiOjE2NDA5OTUyMDAsI" +
-                "mV4cCI6MTk0MDk5ODgwMH0." +
-                "cCuxJyQwgKk981YpKTP-eEgmWx2pOswibxzjlZrDEHw"
         private const val TENANT_ID = "tenant-123"
     }
 
@@ -84,7 +85,7 @@ class LogisticsIntegrationTest {
     private fun authHeaders(): HttpHeaders {
         val headers = HttpHeaders()
         headers.contentType = MediaType.APPLICATION_JSON
-        headers.setBearerAuth(TEST_JWT_TOKEN)
+        headers.setBearerAuth(testJwtTokenGenerator.getTenant123Token())
         return headers
     }
 
@@ -165,7 +166,7 @@ class LogisticsIntegrationTest {
     fun `should create relationships with correct linking reason`() {
         // Given: Create order and container manually
         val order = orderRepository.upsertByRef(TENANT_ID, PurchaseRef("PO123"), BookingRef("BK456"))
-        val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("CONT789012"), BookingRef("BK456"))
+        val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("MEDU1234567"), BookingRef("BK456"))
 
         // When: Link them explicitly
         val relationship =
@@ -186,7 +187,7 @@ class LogisticsIntegrationTest {
     fun `should handle API queries correctly`() {
         // Given: Setup test data with relationships
         val order = orderRepository.upsertByRef(TENANT_ID, PurchaseRef("PO999"), BookingRef("BK999"))
-        val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("CONT999012"), BookingRef("BK999"))
+        val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("MSKU9876543"), BookingRef("BK999"))
 
         orderContainerRepository.linkOrderAndContainer(
             tenantId = TENANT_ID,
@@ -200,26 +201,26 @@ class LogisticsIntegrationTest {
                 "${baseUrl()}/api/orders/PO999/containers",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                List::class.java,
+                Map::class.java,
             )
 
         // Then: Container found
         assertEquals(HttpStatus.OK, containersResponse.statusCode)
-        val containers = containersResponse.body as List<*>
+        val containers = (containersResponse.body as Map<*, *>)["data"] as List<*>
         assertEquals(1, containers.size)
 
         // When: Query orders for container
         val ordersResponse =
             restTemplate.exchange(
-                "${baseUrl()}/api/containers/CONT999012/orders",
+                "${baseUrl()}/api/containers/MSKU9876543/orders",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                List::class.java,
+                Map::class.java,
             )
 
         // Then: Order found
         assertEquals(HttpStatus.OK, ordersResponse.statusCode)
-        val orders = ordersResponse.body as List<*>
+        val orders = (ordersResponse.body as Map<*, *>)["data"] as List<*>
         assertEquals(1, orders.size)
     }
 
@@ -227,7 +228,7 @@ class LogisticsIntegrationTest {
     fun `should prevent duplicate relationships`() {
         // Given: Order and container
         val order = orderRepository.upsertByRef(TENANT_ID, PurchaseRef("PO777"), BookingRef("BK777"))
-        val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("CONT777012"), BookingRef("BK777"))
+        val container = containerRepository.upsertByRef(TENANT_ID, ContainerRef("TCLU1111111"), BookingRef("BK777"))
 
         // When: Link them twice
         val relationship1 =

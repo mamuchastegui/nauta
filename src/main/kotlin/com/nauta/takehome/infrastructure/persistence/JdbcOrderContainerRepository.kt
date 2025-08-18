@@ -26,6 +26,8 @@ class JdbcOrderContainerRepository(
         containerId: Long,
         linkingReason: LinkingReason,
     ): OrderContainer {
+        // Validate that both order and container belong to the specified tenant
+        validateTenantOwnership(tenantId, orderId, containerId)
         val sql =
             """
             INSERT INTO order_containers 
@@ -53,6 +55,32 @@ class JdbcOrderContainerRepository(
             val existingRelationship = findRelationship(tenantId, orderId, containerId)
             checkNotNull(existingRelationship) { "Failed to create or find relationship" }
             existingRelationship
+        }
+    }
+
+    private fun validateTenantOwnership(
+        tenantId: String,
+        orderId: Long,
+        containerId: Long,
+    ) {
+        // Validate order belongs to tenant
+        val orderValidationSql = "SELECT COUNT(*) FROM orders WHERE id = ? AND tenant_id = ?"
+        val orderCount = jdbcTemplate.queryForObject(orderValidationSql, Int::class.java, orderId, tenantId) ?: 0
+        if (orderCount == 0) {
+            throw SecurityException("Order $orderId does not belong to tenant $tenantId")
+        }
+
+        // Validate container belongs to tenant
+        val containerValidationSql = "SELECT COUNT(*) FROM containers WHERE id = ? AND tenant_id = ?"
+        val containerCount =
+            jdbcTemplate.queryForObject(
+                containerValidationSql,
+                Int::class.java,
+                containerId,
+                tenantId,
+            ) ?: 0
+        if (containerCount == 0) {
+            throw SecurityException("Container $containerId does not belong to tenant $tenantId")
         }
     }
 

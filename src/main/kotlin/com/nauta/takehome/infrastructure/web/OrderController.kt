@@ -35,18 +35,18 @@ class OrderController(
     @GetMapping("/{purchaseId}/containers")
     fun getContainersForOrder(
         @PathVariable purchaseId: String,
-    ): ResponseEntity<List<ContainerDto>> {
+    ): ResponseEntity<*> {
         val tenantId =
             tenantContext.getCurrentTenantId()
-                ?: return ResponseEntity.badRequest().build()
+                ?: return ResponseEntity.badRequest().body(mapOf("error" to "Missing tenant context"))
 
         return try {
             val purchaseRef = PurchaseRef(purchaseId)
             val containers = orderContainerRepository.findContainersByPurchaseRef(tenantId, purchaseRef)
-            ResponseEntity.ok(containers.map { it.toDto() })
+            ResponseEntity.ok(mapOf("data" to containers.map { it.toDto() }))
         } catch (e: IllegalArgumentException) {
             logger.warn("Invalid purchase ID: $purchaseId", e)
-            ResponseEntity.badRequest().build()
+            ResponseEntity.badRequest().body(mapOf("error" to "Invalid purchase ID format"))
         }
     }
 }

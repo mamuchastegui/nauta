@@ -10,6 +10,7 @@ import com.nauta.takehome.domain.LinkingReason
 import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.OrderContainer
 import com.nauta.takehome.domain.PurchaseRef
+import com.nauta.takehome.infrastructure.web.EmailIngestRequest
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -164,6 +165,42 @@ class IngestService(
         } catch (e: org.springframework.dao.DataIntegrityViolationException) {
             logger.warn("Data integrity violation linking order ${order.id} to container ${container.id}", e)
         }
+    }
+
+    fun processEmailIngestRequest(
+        tenantId: String,
+        request: EmailIngestRequest,
+    ) {
+        val ingestMessage = convertEmailRequestToIngestMessage(tenantId, request)
+        processIngestMessage(ingestMessage)
+    }
+
+    private fun convertEmailRequestToIngestMessage(
+        tenantId: String,
+        request: EmailIngestRequest,
+    ): IngestMessage {
+        val booking = request.booking?.let { BookingData(it) }
+
+        val orders =
+            request.orders?.map { orderRequest ->
+                val invoices =
+                    orderRequest.invoices?.map { invoiceRequest ->
+                        InvoiceData(invoiceRequest.invoice)
+                    } ?: emptyList()
+                OrderData(orderRequest.purchase, invoices)
+            } ?: emptyList()
+
+        val containers =
+            request.containers?.map { containerRequest ->
+                ContainerData(containerRequest.container)
+            } ?: emptyList()
+
+        return IngestMessage(
+            tenantId = tenantId,
+            booking = booking,
+            orders = orders,
+            containers = containers,
+        )
     }
 }
 
