@@ -6,14 +6,14 @@ import com.nauta.takehome.infrastructure.messaging.EventBus
 import com.nauta.takehome.infrastructure.web.EmailIngestRequest
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
-import java.nio.charset.StandardCharsets
-import java.util.Date
 import org.mockito.Mockito
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.springframework.context.annotation.Profile
 import software.amazon.awssdk.services.sqs.SqsClient
+import java.nio.charset.StandardCharsets
+import java.util.Date
 
 @TestConfiguration
 @Profile("test")

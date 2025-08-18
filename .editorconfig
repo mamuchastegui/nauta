@@ -3,29 +3,7 @@ root = true
 [*]
 charset = utf-8
 end_of_line = lf
-insert_final_newline = true
-trim_trailing_whitespace = true
-
-[*.{kt,kts}]
 indent_style = space
 indent_size = 4
-max_line_length = 120
-ktlint_code_style = ktlint_official
-
-# IntelliJ harmonization (works with KtLint ≥ 0.49)
-ij_kotlin_imports_layout = java,javax,kotlin,*,^
-ij_kotlin_name_count_to_use_star_imports = 999
-ij_kotlin_name_count_to_use_star_import_for_members = 999
-ij_kotlin_trailing_comma_on_declaration_site = true
-ij_kotlin_trailing_comma_on_call_site = true
-
-[*.{md,yml,yaml}]
-trim_trailing_whitespace = false
-
-[*.{sh,bash}]
-indent_style = space
-indent_size = 2
-
-[*.json]
-indent_style = space
-indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true

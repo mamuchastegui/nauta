@@ -4,13 +4,13 @@ import com.nauta.takehome.application.InvoiceRepository
 import com.nauta.takehome.domain.Invoice
 import com.nauta.takehome.domain.InvoiceRef
 import com.nauta.takehome.domain.PurchaseRef
-import java.sql.Timestamp
-import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.dao.EmptyResultDataAccessException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
+import java.sql.Timestamp
+import java.time.Instant
 
 @Repository
 class JdbcInvoiceRepository(private val jdbcTemplate: JdbcTemplate) : InvoiceRepository {

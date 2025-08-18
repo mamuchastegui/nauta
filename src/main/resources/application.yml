@@ -2,6 +2,32 @@ spring:
   application:
     name: nauta-takehome
 
+# Basic health checks and metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics"
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Circuit breaker configuration - conservative settings
+resilience4j:
+  circuitbreaker:
+    instances:
+      database:
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+      sqs:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 20s
+        sliding-window-size: 8
+        minimum-number-of-calls: 4
+
+# App configuration
 app:
   jwt:
     secret: ${JWT_SECRET}

@@ -9,8 +9,6 @@ import com.nauta.takehome.application.IngestMessage
 import com.nauta.takehome.application.IngestService
 import com.nauta.takehome.application.InvoiceData
 import com.nauta.takehome.application.OrderData
-import kotlin.math.min
-import kotlin.math.pow
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -23,6 +21,8 @@ import software.amazon.awssdk.services.sqs.model.Message
 import software.amazon.awssdk.services.sqs.model.MessageSystemAttributeName
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest
+import kotlin.math.min
+import kotlin.math.pow
 
 @Component
 @ConditionalOnProperty(name = ["app.sqs.consumer.enabled"], havingValue = "true", matchIfMissing = true)

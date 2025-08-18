@@ -7,12 +7,12 @@ import com.nauta.takehome.domain.LinkingReason
 import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.OrderContainer
 import com.nauta.takehome.domain.PurchaseRef
-import java.math.BigDecimal
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
+import java.math.BigDecimal
 
 @Repository
 class JdbcOrderContainerRepository(

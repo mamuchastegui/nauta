@@ -53,11 +53,15 @@ dependencies {
     // Metrics
     implementation("io.micrometer:micrometer-registry-prometheus")
 
+    // Resilience
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.1.0")
+
     // Test dependencies
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
 }
 
 ktlint {
