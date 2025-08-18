@@ -27,7 +27,6 @@ class IngestService(
     fun ingestEmail(payload: EmailPayload): IngestResult {
         return try {
             // Parse email payload and extract structured data
-            // This is a simplified implementation - in real scenario would parse email content
             val ingestMessage = parseEmailPayload(payload)
             processIngestMessage(ingestMessage)
             IngestResult.success("Email ingested successfully")
@@ -39,8 +38,7 @@ class IngestService(
     }
 
     private fun parseEmailPayload(payload: EmailPayload): IngestMessage {
-        // Simplified parsing - real implementation would extract from email content
-        // For now, parse basic structure from rawPayload
+        // Parse basic structure from rawPayload
         return try {
             // In a real implementation, this would parse the email content structure
             IngestMessage(

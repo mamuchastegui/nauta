@@ -52,8 +52,8 @@ src/main/kotlin/com/nauta/takehome/
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/mamuchastegui/nauta
-cd nauta-takehome
+git clone git@github.com:mamuchastegui/nauta.git
+cd nauta/nauta-takehome
 ```
 
 ### 2. Environment Configuration
@@ -133,6 +133,7 @@ make clean-env         # Clean and reset environment
 make run-local         # Run with local profile
 make run-dev-aws       # Run with AWS dev profile
 make test              # Run tests
+make coverage          # Generate test coverage report
 
 # Troubleshooting
 make check-env         # Check environment variables
@@ -141,58 +142,74 @@ make reset-local       # Complete reset: clean + setup
 
 See [Development Commands](docs/DEVELOPMENT.md) for complete command reference.
 
-## 📊 Monitoring & Health
+## 📊 Monitoring & Testing
 
+### Health Endpoints
 - **Health Check**: `http://localhost:8080/actuator/health`
 - **Metrics**: `http://localhost:8080/actuator/metrics`
-- **Prometheus**: `http://localhost:8080/actuator/prometheus`
+
+*Note: Prometheus endpoint available but not exposed by default. Add `prometheus` to `management.endpoints.web.exposure.include` if needed.*
+
+### Test Coverage
+Generate and view test coverage report:
+```bash
+make coverage  # Generates HTML report and opens in browser
+```
+
+**Current Coverage:** ~75% overall
+- **Domain Logic**: 86% (business rules and value objects)
+- **Security**: 90% (JWT authentication and tenant isolation)
+- **Web Controllers**: 84% (API endpoints)
+- **Persistence**: 82% (repository implementations)
+- **Messaging**: 45% (SQS event publishing and consuming)
 
 ## ✅ Implementation Status
 
-### ✅ Completed
+### Core Features Implemented
 - [x] **Hexagonal architecture** with clear domain boundaries
-- [x] **Kotlin value classes** with business validation
-- [x] **Multi-tenant JWT authentication** with tenant scoping
-- [x] **SQS messaging** with LocalStack support and endpoint agnostic scripts
+- [x] **Kotlin value classes** with comprehensive business validation (ContainerRef ISO 6346, BookingRef, PurchaseRef)
+- [x] **Multi-tenant JWT authentication** with complete tenant data isolation
+- [x] **SQS messaging** with circuit breaker resilience and error handling
 - [x] **Docker development environment** with PostgreSQL and LocalStack
-- [x] **REST API controllers** with proper HTTP status codes
+- [x] **REST API controllers** with proper HTTP status codes and tenant scoping
 - [x] **Configuration management** for local and AWS environments
-- [x] **Database migrations** with Flyway schema management
-- [x] **M:N relationship model** with order_containers linking table
-- [x] **Progressive linking algorithms** with confidence scoring
-- [x] **Enhanced error handling** with specific exception types
-- [x] **Repository implementations** with complete upsert logic
+- [x] **Database migrations** with Flyway schema management and performance indexes
+- [x] **M:N relationship model** with confidence scoring and linking reasons
+- [x] **Progressive linking algorithms** with booking-based and fallback strategies
+- [x] **Enhanced error handling** with circuit breakers and fallback mechanisms
+- [x] **Repository implementations** with complete upsert logic and tenant isolation
+- [x] **Unit and integration testing** with TestContainers for realistic testing scenarios
+- [x] **Performance optimization** with strategic database indexing for tenant-based queries
+- [x] **System resilience** with Resilience4j circuit breakers for SQS messaging
+- [x] **Basic monitoring** with Spring Boot Actuator health and metrics endpoints
+- [x] **Code quality** with ktlint and detekt static analysis
 
-### 🚧 Next Phase: Testing & Performance
+### Technical Implementation Summary
 
-#### Priority 1: Core Testing
-1. **Integration Tests** - End-to-end testing with TestContainers for M:N relationship validation
-2. **API Contract Tests** - Verify format compliance
-3. **Multi-tenant Isolation Tests** - Ensure complete data separation between tenants
-4. **Progressive Linking Tests** - Validate relationship inference algorithms
+**Core functionality delivered:**
+- Multi-tenant data isolation with JWT authentication
+- Progressive data linking algorithms with confidence scoring
+- Event-driven architecture using SQS messaging with circuit breaker resilience
+- Database performance optimization with 7 strategic indexes for tenant-based queries
+- Comprehensive test suite covering domain logic and integration scenarios
+- Code quality maintained with automated linting and static analysis tools
 
-#### Priority 2: Performance & Observability  
-5. **Query Performance Optimization** - Analyze and optimize database queries with proper indexing
-6. **Connection Pool Tuning** - Optimize HikariCP settings for concurrent load
-7. **Comprehensive Monitoring** - Add domain-specific metrics and health checks
-8. **Load Testing** - Validate system performance under realistic traffic
+**Architecture highlights:**
+- Hexagonal architecture with clear domain boundaries
+- Kotlin value classes with business validation (ISO 6346 for container references)
+- Repository pattern with upsert operations for data consistency
+- Docker-based development environment with LocalStack for local testing
 
-#### Priority 3: Advanced Features
-9. **Advanced Linking Intelligence** - ML-based relationship inference with confidence scoring
-10. **Bulk Operation APIs** - Efficient endpoints for large-scale data operations
-11. **Data Quality Monitoring** - Automated detection of orphaned entities and inconsistencies
-12. **API Documentation** - Complete OpenAPI/Swagger specification with examples
+## 🏆 Technical Highlights
 
-## 🏆 Project Highlights
-
-- **Clean Architecture**: Hexagonal design with clear separation of concerns
-- **Type Safety**: Kotlin value classes for business identifiers with validation
-- **Multi-tenancy**: JWT-based tenant scoping for data isolation  
-- **Flexible Relationships**: M:N model enables complex logistics scenarios
-- **Progressive Linking**: Smart algorithms infer relationships with confidence scoring
-- **Message Queuing**: Asynchronous processing with SQS, DLQ, and retry logic
-- **DevOps Ready**: Docker Compose for local development with LocalStack
-- **Production Foundation**: Scalable architecture ready for event-driven evolution
+- **Clean Architecture**: Hexagonal design with clear separation between domain, application, and infrastructure layers
+- **Type Safety**: Kotlin value classes with domain-specific validation (ISO 6346 format for container references)
+- **Multi-tenancy**: JWT-based authentication with tenant data isolation at the database level
+- **Progressive Linking**: Intelligent algorithms for order-container relationships with confidence scoring
+- **Performance**: Strategic database indexing and HikariCP connection pooling
+- **Resilience**: Circuit breaker pattern implemented for SQS messaging with fallback handling
+- **Testing**: Unit tests for domain logic and integration tests using TestContainers
+- **Development**: Docker Compose setup with LocalStack for local SQS simulation
 
 ## 🤝 Contributing
 

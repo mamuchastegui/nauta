@@ -25,7 +25,9 @@ make reset-local        # Complete reset: clean + setup
 make docker-up          # Start all services
 make docker-down        # Stop all services
 
-# Code Quality
+# Code Quality & Testing
+make test               # Run tests
+make coverage           # Generate test coverage report
 make check-deps         # Check for outdated dependencies
 ./gradlew ktlintCheck   # Kotlin linting
 ./gradlew detekt        # Static analysis
