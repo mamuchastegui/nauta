@@ -5,12 +5,13 @@ import com.nauta.takehome.domain.BookingRef
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.PurchaseRef
-import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.dao.EmptyResultDataAccessException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
+import java.sql.Timestamp
+import java.time.Instant
 
 @Repository
 class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : ContainerRepository {
@@ -40,8 +41,8 @@ class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : Containe
             containerRef.value,
             tenantId,
             bookingRef?.value,
-            now,
-            now,
+            Timestamp.from(now),
+            Timestamp.from(now),
         )!!
     }
 
@@ -54,7 +55,7 @@ class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : Containe
         return try {
             jdbcTemplate.queryForObject(sql, containerRowMapper, tenantId, containerRef.value)
         } catch (e: EmptyResultDataAccessException) {
-            logger.debug("No container found for ref: ${containerRef.value} and tenant: $tenantId")
+            logger.debug("No container found for ref: ${containerRef.value} and tenant: $tenantId", e)
             null
         }
     }

@@ -81,6 +81,17 @@ run-dev-aws: ## Run with dev-aws profile (RDS + AWS SQS)
 test: ## Run tests
 	./gradlew test
 
+coverage: ## Generate test coverage report
+	@echo "🧪 Generating test coverage report..."
+	./gradlew test jacocoTestReport
+	@echo "📊 Coverage report generated:"
+	@echo "  HTML: file://$(PWD)/build/reports/jacoco/test/html/index.html"
+	@echo "  XML:  $(PWD)/build/reports/jacoco/test/jacocoTestReport.xml"
+	@if command -v open >/dev/null 2>&1; then \
+		echo "🌐 Opening report in browser..."; \
+		open build/reports/jacoco/test/html/index.html; \
+	fi
+
 clean: ## Clean build artifacts
 	./gradlew clean
 

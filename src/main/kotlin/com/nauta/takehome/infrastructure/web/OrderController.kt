@@ -1,6 +1,6 @@
 package com.nauta.takehome.infrastructure.web
 
-import com.nauta.takehome.application.ContainerRepository
+import com.nauta.takehome.application.OrderContainerRepository
 import com.nauta.takehome.application.OrderRepository
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.Order
@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/orders")
 class OrderController(
     private val orderRepository: OrderRepository,
-    private val containerRepository: ContainerRepository,
+    private val orderContainerRepository: OrderContainerRepository,
     private val tenantContext: TenantContext,
 ) {
     private val logger = LoggerFactory.getLogger(OrderController::class.java)
@@ -35,18 +35,18 @@ class OrderController(
     @GetMapping("/{purchaseId}/containers")
     fun getContainersForOrder(
         @PathVariable purchaseId: String,
-    ): ResponseEntity<List<ContainerDto>> {
+    ): ResponseEntity<*> {
         val tenantId =
             tenantContext.getCurrentTenantId()
-                ?: return ResponseEntity.badRequest().build()
+                ?: return ResponseEntity.badRequest().body(mapOf("error" to "Missing tenant context"))
 
         return try {
             val purchaseRef = PurchaseRef(purchaseId)
-            val containers = containerRepository.findByPurchaseRef(tenantId, purchaseRef)
-            ResponseEntity.ok(containers.map { it.toDto() })
+            val containers = orderContainerRepository.findContainersByPurchaseRef(tenantId, purchaseRef)
+            ResponseEntity.ok(mapOf("data" to containers.map { it.toDto() }))
         } catch (e: IllegalArgumentException) {
             logger.warn("Invalid purchase ID: $purchaseId", e)
-            ResponseEntity.badRequest().build()
+            ResponseEntity.badRequest().body(mapOf("error" to "Invalid purchase ID format"))
         }
     }
 }
@@ -57,7 +57,7 @@ private fun Order.toDto() =
         purchaseRef = purchaseRef.value,
         tenantId = tenantId,
         bookingRef = bookingRef?.value,
-        containerRef = containerRef?.value,
+        containerRef = null,
         createdAt = createdAt.toString(),
         updatedAt = updatedAt.toString(),
     )

@@ -3,12 +3,13 @@ package com.nauta.takehome.infrastructure.persistence
 import com.nauta.takehome.application.BookingRepository
 import com.nauta.takehome.domain.Booking
 import com.nauta.takehome.domain.BookingRef
-import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.dao.EmptyResultDataAccessException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
+import java.sql.Timestamp
+import java.time.Instant
 
 @Repository
 class JdbcBookingRepository(private val jdbcTemplate: JdbcTemplate) : BookingRepository {
@@ -34,8 +35,8 @@ class JdbcBookingRepository(private val jdbcTemplate: JdbcTemplate) : BookingRep
             bookingRowMapper,
             bookingRef.value,
             tenantId,
-            now,
-            now,
+            Timestamp.from(now),
+            Timestamp.from(now),
         )!!
     }
 
@@ -48,7 +49,7 @@ class JdbcBookingRepository(private val jdbcTemplate: JdbcTemplate) : BookingRep
         return try {
             jdbcTemplate.queryForObject(sql, bookingRowMapper, tenantId, bookingRef.value)
         } catch (e: EmptyResultDataAccessException) {
-            logger.debug("No booking found for ref: ${bookingRef.value} and tenant: $tenantId")
+            logger.debug("No booking found for ref: ${bookingRef.value} and tenant: $tenantId", e)
             null
         }
     }

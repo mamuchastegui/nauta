@@ -8,14 +8,14 @@ import io.jsonwebtoken.security.Keys
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import java.nio.charset.StandardCharsets
-import javax.crypto.SecretKey
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import java.nio.charset.StandardCharsets
+import javax.crypto.SecretKey
 
 @Component
 class JwtAuthenticationFilter(

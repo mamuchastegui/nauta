@@ -2,13 +2,13 @@ package com.nauta.takehome.infrastructure.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
-import java.net.URI
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableScheduling
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsClient
+import java.net.URI
 
 @Configuration
 @EnableScheduling
@@ -33,15 +33,16 @@ class ApplicationConfig {
                 .region(Region.of(region))
 
         // Determine endpoint: use explicit endpoint or extract from queue URL
-        val effectiveEndpoint = when {
-            sqsEndpoint.isNotBlank() -> sqsEndpoint
-            queueUrl.contains("localhost") -> {
-                // Extract endpoint from LocalStack queue URL (domain or path strategy)
-                val regex = """(https?://[^/]+)""".toRegex()
-                regex.find(queueUrl)?.groupValues?.get(1) ?: "http://localhost:4566"
+        val effectiveEndpoint =
+            when {
+                sqsEndpoint.isNotBlank() -> sqsEndpoint
+                queueUrl.contains("localhost") -> {
+                    // Extract endpoint from LocalStack queue URL (domain or path strategy)
+                    val regex = """(https?://[^/]+)""".toRegex()
+                    regex.find(queueUrl)?.groupValues?.get(1) ?: "http://localhost:4566"
+                }
+                else -> ""
             }
-            else -> ""
-        }
 
         if (effectiveEndpoint.isNotBlank()) {
             builder.endpointOverride(URI.create(effectiveEndpoint))

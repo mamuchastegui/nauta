@@ -9,5 +9,5 @@ import org.springframework.scheduling.annotation.EnableScheduling
 class NautaTakehomeApplication
 
 fun main(args: Array<String>) {
-    runApplication<NautaTakehomeApplication>(*args)
+    runApplication<NautaTakehomeApplication>(args = args)
 }

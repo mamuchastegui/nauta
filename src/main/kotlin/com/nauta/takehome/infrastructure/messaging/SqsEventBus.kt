@@ -2,14 +2,15 @@ package com.nauta.takehome.infrastructure.messaging
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
-import java.time.Instant
-import java.util.UUID
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import software.amazon.awssdk.core.exception.SdkException
 import software.amazon.awssdk.services.sqs.SqsClient
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest
+import java.time.Instant
+import java.util.UUID
 
 @Component
 class SqsEventBus(
@@ -19,6 +20,7 @@ class SqsEventBus(
 ) : EventBus {
     private val logger = LoggerFactory.getLogger(SqsEventBus::class.java)
 
+    @CircuitBreaker(name = "sqs", fallbackMethod = "publishIngestFallback")
     override fun publishIngest(
         tenantId: String,
         idempotencyKey: String?,
@@ -52,7 +54,23 @@ class SqsEventBus(
             throw e
         }
     }
+
+    @Suppress("UnusedParameter", "UnusedPrivateMember")
+    private fun publishIngestFallback(
+        tenantId: String,
+        @Suppress("UNUSED_PARAMETER") idempotencyKey: String?,
+        @Suppress("UNUSED_PARAMETER") rawPayload: String,
+        exception: Exception,
+    ) {
+        logger.error(
+            "Circuit breaker activated for SQS - falling back to local processing for tenant: $tenantId",
+            exception,
+        )
+        throw SqsCircuitOpenException("SQS circuit breaker is open - message queuing unavailable", exception)
+    }
 }
+
+class SqsCircuitOpenException(message: String, cause: Throwable?) : RuntimeException(message, cause)
 
 data class IngestQueueMessage(
     val messageId: String,

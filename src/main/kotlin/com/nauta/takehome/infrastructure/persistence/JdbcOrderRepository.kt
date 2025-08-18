@@ -2,15 +2,15 @@ package com.nauta.takehome.infrastructure.persistence
 
 import com.nauta.takehome.application.OrderRepository
 import com.nauta.takehome.domain.BookingRef
-import com.nauta.takehome.domain.ContainerRef
 import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.PurchaseRef
-import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.dao.EmptyResultDataAccessException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.stereotype.Repository
+import java.sql.Timestamp
+import java.time.Instant
 
 @Repository
 class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderRepository {
@@ -40,8 +40,8 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
             purchaseRef.value,
             tenantId,
             bookingRef?.value,
-            now,
-            now,
+            Timestamp.from(now),
+            Timestamp.from(now),
         )!!
     }
 
@@ -54,7 +54,7 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
         return try {
             jdbcTemplate.queryForObject(sql, orderRowMapper, tenantId, purchaseRef.value)
         } catch (e: EmptyResultDataAccessException) {
-            logger.debug("No order found for purchase ref: ${purchaseRef.value} and tenant: $tenantId")
+            logger.debug("No order found for purchase ref: ${purchaseRef.value} and tenant: $tenantId", e)
             null
         }
     }
@@ -64,14 +64,6 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
         return jdbcTemplate.query(sql, orderRowMapper, tenantId)
     }
 
-    override fun findByContainerRef(
-        tenantId: String,
-        containerRef: ContainerRef,
-    ): List<Order> {
-        val sql = "SELECT * FROM orders WHERE tenant_id = ? AND container_ref = ?"
-        return jdbcTemplate.query(sql, orderRowMapper, tenantId, containerRef.value)
-    }
-
     private val orderRowMapper =
         RowMapper<Order> { rs, _ ->
             Order(
@@ -79,7 +71,6 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
                 purchaseRef = PurchaseRef(rs.getString("purchase_ref")),
                 tenantId = rs.getString("tenant_id"),
                 bookingRef = rs.getString("booking_ref")?.let { BookingRef(it) },
-                containerRef = rs.getString("container_ref")?.let { ContainerRef(it) },
                 createdAt = rs.getTimestamp("created_at").toInstant(),
                 updatedAt = rs.getTimestamp("updated_at").toInstant(),
             )

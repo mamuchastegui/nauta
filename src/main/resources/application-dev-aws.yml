@@ -3,6 +3,14 @@ spring:
     url: jdbc:postgresql://${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?sslmode=require
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 25
+      minimum-idle: 8
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 60000
+      pool-name: "NautaHikariPoolAWS"
   flyway:
     enabled: true
     baseline-on-migrate: true

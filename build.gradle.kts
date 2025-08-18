@@ -9,6 +9,7 @@ plugins {
     // --- Quality ---
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
     id("io.gitlab.arturbosch.detekt") version "1.23.7"
+    jacoco
 }
 
 group = "com.nauta"
@@ -53,11 +54,15 @@ dependencies {
     // Metrics
     implementation("io.micrometer:micrometer-registry-prometheus")
 
+    // Resilience
+    implementation("io.github.resilience4j:resilience4j-spring-boot3:2.1.0")
+
     // Test dependencies
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
 }
 
 ktlint {
@@ -82,4 +87,43 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+// --- Jacoco Configuration ---
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    executionData.setFrom(fileTree(layout.buildDirectory.dir("jacoco")).include("**/*.exec"))
+
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(
+                        "**/infrastructure/config/**",
+                        "**/NautaTakehomeApplication*",
+                        "**/*Dto*",
+                        "**/infrastructure/web/WebDtos*",
+                    )
+                }
+            },
+        ),
+    )
+}
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport)
+    violationRules {
+        rule {
+            limit {
+                minimum = "0.80".toBigDecimal() // 80% minimum coverage
+            }
+        }
+    }
 }
