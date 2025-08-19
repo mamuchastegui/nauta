@@ -201,12 +201,12 @@ class LogisticsIntegrationTest {
                 "${baseUrl()}/api/orders/PO999/containers",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                Map::class.java,
+                List::class.java,
             )
 
         // Then: Container found
         assertEquals(HttpStatus.OK, containersResponse.statusCode)
-        val containers = (containersResponse.body as Map<*, *>)["data"] as List<*>
+        val containers = containersResponse.body as List<*>
         assertEquals(1, containers.size)
 
         // When: Query orders for container
@@ -215,12 +215,12 @@ class LogisticsIntegrationTest {
                 "${baseUrl()}/api/containers/MSKU9876543/orders",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                Map::class.java,
+                List::class.java,
             )
 
         // Then: Order found
         assertEquals(HttpStatus.OK, ordersResponse.statusCode)
-        val orders = (ordersResponse.body as Map<*, *>)["data"] as List<*>
+        val orders = ordersResponse.body as List<*>
         assertEquals(1, orders.size)
     }
 

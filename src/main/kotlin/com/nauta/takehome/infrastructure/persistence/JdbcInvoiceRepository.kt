@@ -59,6 +59,14 @@ class JdbcInvoiceRepository(private val jdbcTemplate: JdbcTemplate) : InvoiceRep
         }
     }
 
+    override fun findByPurchaseRef(
+        tenantId: String,
+        purchaseRef: PurchaseRef,
+    ): List<Invoice> {
+        val sql = "SELECT * FROM invoices WHERE tenant_id = ? AND purchase_ref = ? ORDER BY created_at DESC"
+        return jdbcTemplate.query(sql, invoiceRowMapper, tenantId, purchaseRef.value)
+    }
+
     private val invoiceRowMapper =
         RowMapper<Invoice> { rs, _ ->
             Invoice(

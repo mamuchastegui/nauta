@@ -347,7 +347,7 @@ class MultiTenantIsolationTest {
                 "${baseUrl()}/api/orders/PO-SECRET-A/containers",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeadersForTenantB()),
-                Map::class.java,
+                List::class.java,
             )
 
         // Then: No data returned (404 or empty list, not an error revealing the order exists)
@@ -358,7 +358,7 @@ class MultiTenantIsolationTest {
         )
 
         if (response.statusCode == HttpStatus.OK) {
-            val containers = response.body?.get("data") as? List<*> ?: emptyList<Any>()
+            val containers = response.body as? List<*> ?: emptyList<Any>()
             assertTrue(containers.isEmpty(), "Should not return cross-tenant data")
         }
     }

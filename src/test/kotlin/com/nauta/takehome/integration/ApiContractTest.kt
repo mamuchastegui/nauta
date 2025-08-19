@@ -293,12 +293,12 @@ class ApiContractTest {
                 "${baseUrl()}/api/orders/PO777/containers",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                Map::class.java,
+                List::class.java,
             )
 
         // Then: Linked containers returned
         assertEquals(HttpStatus.OK, response.statusCode)
-        val containers = (response.body as Map<*, *>)["data"] as List<*>
+        val containers = response.body as List<*>
         assertEquals(1, containers.size)
     }
 
@@ -333,12 +333,12 @@ class ApiContractTest {
                 "${baseUrl()}/api/containers/LINK7654321/orders",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                Map::class.java,
+                List::class.java,
             )
 
         // Then: Linked orders returned
         assertEquals(HttpStatus.OK, response.statusCode)
-        val orders = (response.body as Map<*, *>)["data"] as List<*>
+        val orders = response.body as List<*>
         assertEquals(1, orders.size)
     }
 
@@ -404,12 +404,12 @@ class ApiContractTest {
                 "${baseUrl()}/api/orders/NONEXISTENT_PURCHASE/containers",
                 HttpMethod.GET,
                 HttpEntity<Void>(authHeaders()),
-                Map::class.java,
+                List::class.java,
             )
 
         // Then: OK response with empty data
         assertEquals(HttpStatus.OK, response.statusCode)
-        val containers = (response.body as Map<*, *>)["data"] as List<*>
+        val containers = response.body as List<*>
         assertTrue(containers.isEmpty())
     }
 }
