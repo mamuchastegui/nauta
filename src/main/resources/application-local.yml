@@ -20,6 +20,11 @@ spring:
     open-in-view: false
 server:
   port: 8080
+  
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.apache.catalina: DEBUG
 
 app:
   jwt:

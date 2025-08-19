@@ -37,7 +37,7 @@ class EmailController(
                 objectMapper.writeValueAsString(request)
             } catch (e: JsonProcessingException) {
                 logger.warn("Failed to serialize email payload to JSON, using toString fallback", e)
-                request.toString() // Fallback to toString if JSON serialization fails
+                request.toString()
             }
 
         eventBus.publishIngest(tenantId, idempotencyKey, rawPayload)

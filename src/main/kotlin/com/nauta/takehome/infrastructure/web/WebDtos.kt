@@ -20,6 +20,7 @@ data class ContainerDto(
     val updatedAt: String,
 )
 
+@com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = false)
 data class EmailIngestRequest(
     val booking: String?,
     val containers: List<ContainerRequest>?,
