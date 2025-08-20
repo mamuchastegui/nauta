@@ -59,8 +59,8 @@ curl -X POST http://localhost:8080/auth/token \
 
 ### 1. Email Ingestion
 
-**Endpoint**: `POST /api/email`  
-**Purpose**: Ingest email data for processing via SQS  
+**Endpoint**: `POST /api/email`
+**Purpose**: Ingest email data for processing via SQS
 **Response**: `202 Accepted` (asynchronous processing)
 
 #### Basic Request
@@ -124,7 +124,7 @@ curl -X POST http://localhost:8080/api/email \
 
 ### 2. Query Orders
 
-**Endpoint**: `GET /api/orders`  
+**Endpoint**: `GET /api/orders`
 **Purpose**: Retrieve all orders for the authenticated tenant
 
 ```bash
@@ -158,7 +158,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 
 ### 3. Query Containers
 
-**Endpoint**: `GET /api/containers`  
+**Endpoint**: `GET /api/containers`
 **Purpose**: Retrieve all containers for the authenticated tenant
 
 ```bash
@@ -183,7 +183,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 
 ### 4. Get Containers for Specific Order
 
-**Endpoint**: `GET /api/orders/{purchaseId}/containers`  
+**Endpoint**: `GET /api/orders/{purchaseId}/containers`
 **Purpose**: Retrieve containers associated with a specific order
 
 ```bash
@@ -208,7 +208,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 
 ### 5. Get Orders for Specific Container
 
-**Endpoint**: `GET /api/containers/{containerId}/orders`  
+**Endpoint**: `GET /api/containers/{containerId}/orders`
 **Purpose**: Retrieve orders associated with a specific container
 
 ```bash
@@ -422,5 +422,7 @@ make check-env | grep JWT_SECRET
 echo "YOUR_JWT_TOKEN" | cut -d. -f2 | base64 -d
 # Should decode to valid JSON with tenant_id
 ```
+
+Try the collection in Postman with 10 different scenarios 👉 [Postman Collection](https://inline-skating.postman.co/workspace/CONDAMIND~fc52d8c8-377c-493c-9a1e-2bd8f817f2ef/collection/11957599-76ab8b31-bdbf-44d2-9366-3f7008d3b474?action=share&creator=11957599&active-environment=11957599-8d461798-d054-46ba-b413-0f5c57991b41)
 
 For more troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).

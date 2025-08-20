@@ -124,6 +124,8 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" http://localhost:8080/api/orders
 
 See [API Testing Guide](docs/API_TESTING.md) for comprehensive testing examples.
 
+Or try the collection in Postman with 10 different scenarios 👉 [Postman Collection](https://inline-skating.postman.co/workspace/CONDAMIND~fc52d8c8-377c-493c-9a1e-2bd8f817f2ef/collection/11957599-76ab8b31-bdbf-44d2-9366-3f7008d3b474?action=share&creator=11957599&active-environment=11957599-8d461798-d054-46ba-b413-0f5c57991b41)
+
 ## 🛠️ Common Commands
 
 ```bash
