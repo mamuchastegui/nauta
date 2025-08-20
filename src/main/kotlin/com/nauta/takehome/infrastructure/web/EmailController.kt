@@ -36,16 +36,18 @@ class EmailController(
     @Operation(
         summary = "Ingest data via email",
         description = "Processes and queues logistics data (containers and orders) received via email",
-        requestBody = io.swagger.v3.oas.annotations.parameters.RequestBody(
-            description = "Email data containing containers and orders to process",
-            required = true,
-            content = [Content(
-                mediaType = "application/json",
-                examples = [
-                    ExampleObject(
-                        name = "Complete request",
-                        summary = "Full email ingestion with booking, containers, and orders",
-                        value = """{
+        requestBody =
+            io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Email data containing containers and orders to process",
+                required = true,
+                content = [
+                    Content(
+                        mediaType = "application/json",
+                        examples = [
+                            ExampleObject(
+                                name = "Complete request",
+                                summary = "Full email ingestion with booking, containers, and orders",
+                                value = """{
   "booking": "HBLA240801001",
   "containers": [
     {"container": "TCLU7654321"},
@@ -59,67 +61,78 @@ class EmailController(
       ]
     }
   ]
-}"""
-                    ),
-                    ExampleObject(
-                        name = "Minimal request",
-                        summary = "Simple request with only containers",
-                        value = """{
+}""",
+                            ),
+                            ExampleObject(
+                                name = "Minimal request",
+                                summary = "Simple request with only containers",
+                                value = """{
   "containers": [
     {"container": "TCLU7654321"}
   ]
-}"""
-                    )
-                ]
-            )]
-        )
+}""",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
     )
     @ApiResponses(
         value = [
             ApiResponse(
                 responseCode = "202",
                 description = "Email queued for processing",
-                content = [Content(
-                    mediaType = "application/json",
-                    examples = [
-                        ExampleObject(
-                            name = "Success response",
-                            value = """{"message": "Email queued for processing", "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000"}"""
-                        )
-                    ]
-                )]
+                content = [
+                    Content(
+                        mediaType = "application/json",
+                        examples = [
+                            ExampleObject(
+                                name = "Success response",
+                                value =
+                                    """{"message": "Email queued for processing", """ +
+                                        """"idempotencyKey": "550e8400-e29b-41d4-a716-446655440000"}""",
+                            ),
+                        ],
+                    ),
+                ],
             ),
             ApiResponse(
                 responseCode = "401",
                 description = "Unauthorized - missing tenant context",
-                content = [Content(
-                    mediaType = "application/json",
-                    examples = [
-                        ExampleObject(
-                            name = "Missing tenant context",
-                            value = """{"error": "No tenant context"}"""
-                        ),
-                        ExampleObject(
-                            name = "Invalid JWT token",
-                            value = """{"error": "Invalid token"}"""
-                        )
-                    ]
-                )]
+                content = [
+                    Content(
+                        mediaType = "application/json",
+                        examples = [
+                            ExampleObject(
+                                name = "Missing tenant context",
+                                value = """{"error": "No tenant context"}""",
+                            ),
+                            ExampleObject(
+                                name = "Invalid JWT token",
+                                value = """{"error": "Invalid token"}""",
+                            ),
+                        ],
+                    ),
+                ],
             ),
             ApiResponse(
                 responseCode = "400",
                 description = "Bad request - invalid input data",
-                content = [Content(
-                    mediaType = "application/json",
-                    examples = [
-                        ExampleObject(
-                            name = "Invalid container format",
-                            value = """{"error": "Container ID must match ISO 6346 format: 4 letters + 7 digits"}"""
-                        )
-                    ]
-                )]
-            )
-        ]
+                content = [
+                    Content(
+                        mediaType = "application/json",
+                        examples = [
+                            ExampleObject(
+                                name = "Invalid container format",
+                                value =
+                                    """{"error": "Container ID must match ISO 6346 format: """ +
+                                        """4 letters + 7 digits"}""",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
     )
     fun ingestEmail(
         @Valid @RequestBody request: EmailIngestRequest,

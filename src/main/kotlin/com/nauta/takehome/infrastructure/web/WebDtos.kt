@@ -65,10 +65,10 @@ data class InvoiceRequest(
 
 // Error Response DTOs
 data class ErrorResponse(
-    val error: String
+    val error: String,
 )
 
 data class EmailIngestResponse(
     val message: String,
-    val idempotencyKey: String
+    val idempotencyKey: String,
 )

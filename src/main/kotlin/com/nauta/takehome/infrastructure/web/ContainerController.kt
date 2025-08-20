@@ -49,12 +49,13 @@ class ContainerController(
             ApiResponse(
                 responseCode = "200",
                 description = "Container orders retrieved successfully",
-                content = [Content(
-                    mediaType = "application/json",
-                    examples = [
-                        ExampleObject(
-                            name = "Container with orders",
-                            value = """[
+                content = [
+                    Content(
+                        mediaType = "application/json",
+                        examples = [
+                            ExampleObject(
+                                name = "Container with orders",
+                                value = """[
                                 {
                                     "id": 1001,
                                     "purchase": "PO-NAU-2024-001234",
@@ -72,12 +73,13 @@ class ContainerController(
                                     "createdAt": "2024-08-19T15:30:00.123456Z",
                                     "updatedAt": "2024-08-19T16:45:30.789012Z"
                                 }
-                            ]"""
-                        )
-                    ]
-                )]
-            )
-        ]
+                            ]""",
+                            ),
+                        ],
+                    ),
+                ],
+            ),
+        ],
     )
     fun getOrdersForContainer(
         @PathVariable containerId: String,

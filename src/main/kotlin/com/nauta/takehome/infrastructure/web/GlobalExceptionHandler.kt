@@ -12,6 +12,12 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(GlobalExceptionHandler::class.java)
 
+    companion object {
+        private const val HTTP_STATUS_UNPROCESSABLE_ENTITY = 422
+        private const val HTTP_STATUS_BAD_REQUEST = 400
+        private const val HTTP_STATUS_INTERNAL_SERVER_ERROR = 500
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidationExceptions(ex: MethodArgumentNotValidException): ResponseEntity<Map<String, Any>> {
         val errors = mutableMapOf<String, String>()
@@ -27,7 +33,7 @@ class GlobalExceptionHandler {
                 mapOf(
                     "error" to "Validation failed",
                     "details" to errors,
-                    "status" to 422,
+                    "status" to HTTP_STATUS_UNPROCESSABLE_ENTITY,
                 ),
             )
     }
@@ -42,7 +48,7 @@ class GlobalExceptionHandler {
                     "error" to "Invalid parameter type",
                     "parameter" to ex.name,
                     "message" to "Expected ${ex.requiredType?.simpleName} but received '${ex.value}'",
-                    "status" to 400,
+                    "status" to HTTP_STATUS_BAD_REQUEST,
                 ),
             )
     }
@@ -56,7 +62,7 @@ class GlobalExceptionHandler {
                 mapOf(
                     "error" to "Invalid argument",
                     "message" to (ex.message ?: "Invalid request"),
-                    "status" to 400,
+                    "status" to HTTP_STATUS_BAD_REQUEST,
                 ),
             )
     }
@@ -70,7 +76,7 @@ class GlobalExceptionHandler {
                 mapOf(
                     "error" to "Internal server error",
                     "message" to "An unexpected error occurred",
-                    "status" to 500,
+                    "status" to HTTP_STATUS_INTERNAL_SERVER_ERROR,
                 ),
             )
     }
