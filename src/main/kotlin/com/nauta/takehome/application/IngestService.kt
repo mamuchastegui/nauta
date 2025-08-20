@@ -357,43 +357,6 @@ interface OrderContainerRepository {
     fun findAllRelationships(tenantId: String): List<OrderContainer>
 }
 
-interface OrderContainerRepository {
-    fun linkOrderAndContainer(
-        tenantId: String,
-        orderId: Long,
-        containerId: Long,
-        linkingReason: LinkingReason = LinkingReason.BOOKING_MATCH,
-    ): OrderContainer
-
-    fun findContainersByOrderId(
-        tenantId: String,
-        orderId: Long,
-    ): List<Container>
-
-    fun findOrdersByContainerId(
-        tenantId: String,
-        containerId: Long,
-    ): List<Order>
-
-    fun findContainersByPurchaseRef(
-        tenantId: String,
-        purchaseRef: PurchaseRef,
-    ): List<Container>
-
-    fun findOrdersByContainerRef(
-        tenantId: String,
-        containerRef: ContainerRef,
-    ): List<Order>
-
-    fun unlinkOrderAndContainer(
-        tenantId: String,
-        orderId: Long,
-        containerId: Long,
-    ): Boolean
-
-    fun findAllRelationships(tenantId: String): List<OrderContainer>
-}
-
 // Data classes for message processing
 data class IngestMessage(
     val tenantId: String,
