@@ -8,6 +8,12 @@ import com.nauta.takehome.domain.Invoice
 import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.PurchaseRef
 import com.nauta.takehome.infrastructure.security.TenantContext
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.ExampleObject
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.responses.ApiResponses
+import io.swagger.v3.oas.annotations.tags.Tag
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -17,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/orders")
+@Tag(name = "Orders")
 class OrderController(
     private val orderRepository: OrderRepository,
     private val orderContainerRepository: OrderContainerRepository,
@@ -41,6 +48,41 @@ class OrderController(
     }
 
     @GetMapping("/{purchaseId}/containers")
+    @Operation(summary = "Get containers for order")
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Order containers retrieved successfully",
+                content = [Content(
+                    mediaType = "application/json",
+                    examples = [
+                        ExampleObject(
+                            name = "Order with containers",
+                            value = """[
+                                {
+                                    "id": 3001,
+                                    "container": "TCLU7654321",
+                                    "tenantId": "nauta-logistics-001",
+                                    "booking": "HBLA240801001",
+                                    "createdAt": "2024-08-19T12:00:00.123456Z",
+                                    "updatedAt": "2024-08-19T13:22:15.789012Z"
+                                },
+                                {
+                                    "id": 3002,
+                                    "container": "MSKU9876543",
+                                    "tenantId": "nauta-logistics-001",
+                                    "booking": "HBLA240801001",
+                                    "createdAt": "2024-08-19T12:05:00.654321Z",
+                                    "updatedAt": "2024-08-19T13:25:45.112233Z"
+                                }
+                            ]"""
+                        )
+                    ]
+                )]
+            )
+        ]
+    )
     fun getContainersForOrder(
         @PathVariable purchaseId: String,
     ): ResponseEntity<*> {

@@ -32,6 +32,7 @@ data class ContainerDto(
     val updatedAt: String,
 )
 
+// Request DTOs (for API requests)
 @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = false)
 data class EmailIngestRequest(
     val booking: String?,
@@ -60,4 +61,14 @@ data class OrderRequest(
 data class InvoiceRequest(
     @field:NotBlank(message = "Invoice ID cannot be blank")
     val invoice: String,
+)
+
+// Error Response DTOs
+data class ErrorResponse(
+    val error: String
+)
+
+data class EmailIngestResponse(
+    val message: String,
+    val idempotencyKey: String
 )

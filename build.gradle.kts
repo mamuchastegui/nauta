@@ -57,6 +57,9 @@ dependencies {
     // Resilience
     implementation("io.github.resilience4j:resilience4j-spring-boot3:2.1.0")
 
+    // OpenAPI documentation
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
+
     // Test dependencies
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.testcontainers:postgresql")

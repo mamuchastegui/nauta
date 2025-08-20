@@ -120,7 +120,11 @@ class JwtAuthenticationFilter(
 
     override fun shouldNotFilter(request: HttpServletRequest): Boolean {
         val path = request.servletPath
-        return path.startsWith("/actuator") || path.startsWith("/health")
+        return path.startsWith("/actuator") || 
+               path.startsWith("/health") ||
+               path.startsWith("/swagger-ui") ||
+               path.startsWith("/v3/api-docs") ||
+               path == "/swagger-ui.html"
     }
 
     private sealed class AuthResult {
