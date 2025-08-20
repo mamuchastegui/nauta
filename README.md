@@ -93,6 +93,8 @@ make run-dev-aws
 
 The application starts on `http://localhost:8080`
 
+**📖 API Documentation:** [Swagger UI](http://localhost:8080/swagger-ui/index.html) - Interactive API documentation and testing interface
+
 ## 📚 Documentation
 
 | Document | Description |
