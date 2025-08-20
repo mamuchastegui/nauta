@@ -104,16 +104,21 @@ class IngestService(
         containers: List<Container>,
         bookingData: BookingData?,
     ) {
-        if (orders.isEmpty() || containers.isEmpty()) return
+        // Strategy 1: Link current payload items (if both exist)
+        if (orders.isNotEmpty() && containers.isNotEmpty()) {
+            if (bookingData != null) {
+                val bookingRef = BookingRef(bookingData.bookingRef)
+                linkByBookingRef(tenantId, orders, containers, bookingRef)
+            } else {
+                // Fallback: link all orders to all containers in the same message
+                linkAllToAll(tenantId, orders, containers, LinkingReason.SYSTEM_MIGRATION)
+            }
+        }
 
-        // Strategy 1: Link by booking reference (highest confidence)
+        // Strategy 2: Perform reconciliation for existing data (critical for escenario 3)
         if (bookingData != null) {
             val bookingRef = BookingRef(bookingData.bookingRef)
-            linkByBookingRef(tenantId, orders, containers, bookingRef)
-        } else {
-            // Strategy 2: Link all orders to all containers in the same message
-            // This is a fallback when no booking reference is available
-            linkAllToAll(tenantId, orders, containers, LinkingReason.SYSTEM_MIGRATION)
+            performBookingReconciliation(tenantId, bookingRef)
         }
     }
 
@@ -163,6 +168,43 @@ class IngestService(
         } catch (e: org.springframework.dao.DataIntegrityViolationException) {
             logger.warn("Data integrity violation linking order ${order.id} to container ${container.id}", e)
         }
+    }
+
+    /**
+     * Reconciles all existing orders and containers that share the same booking reference.
+     * This solves the "escenario 3" where orders and containers arrive in separate payloads.
+     */
+    private fun performBookingReconciliation(
+        tenantId: String,
+        bookingRef: BookingRef,
+    ) {
+        // Find all existing orders with this booking
+        val existingOrders = findOrdersByBookingRef(tenantId, bookingRef)
+
+        // Find all existing containers with this booking
+        val existingContainers = findContainersByBookingRef(tenantId, bookingRef)
+
+        if (existingOrders.isNotEmpty() && existingContainers.isNotEmpty()) {
+            logger.info(
+                "Performing reconciliation for booking ${bookingRef.value}: " +
+                    "${existingOrders.size} orders × ${existingContainers.size} containers",
+            )
+            linkAllToAll(tenantId, existingOrders, existingContainers, LinkingReason.BOOKING_MATCH)
+        }
+    }
+
+    private fun findOrdersByBookingRef(
+        tenantId: String,
+        bookingRef: BookingRef,
+    ): List<Order> {
+        return orderRepository.findByBookingRef(tenantId, bookingRef)
+    }
+
+    private fun findContainersByBookingRef(
+        tenantId: String,
+        bookingRef: BookingRef,
+    ): List<Container> {
+        return containerRepository.findByBookingRef(tenantId, bookingRef)
     }
 
     fun processEmailIngestRequest(
@@ -216,6 +258,11 @@ interface OrderRepository {
     ): Order?
 
     fun findAll(tenantId: String): List<Order>
+
+    fun findByBookingRef(
+        tenantId: String,
+        bookingRef: BookingRef,
+    ): List<Order>
 }
 
 interface ContainerRepository {
@@ -235,6 +282,11 @@ interface ContainerRepository {
     fun findByPurchaseRef(
         tenantId: String,
         purchaseRef: PurchaseRef,
+    ): List<Container>
+
+    fun findByBookingRef(
+        tenantId: String,
+        bookingRef: BookingRef,
     ): List<Container>
 }
 
@@ -261,6 +313,48 @@ interface InvoiceRepository {
         tenantId: String,
         invoiceRef: InvoiceRef,
     ): Invoice?
+
+    fun findByPurchaseRef(
+        tenantId: String,
+        purchaseRef: PurchaseRef,
+    ): List<Invoice>
+}
+
+interface OrderContainerRepository {
+    fun linkOrderAndContainer(
+        tenantId: String,
+        orderId: Long,
+        containerId: Long,
+        linkingReason: LinkingReason = LinkingReason.BOOKING_MATCH,
+    ): OrderContainer
+
+    fun findContainersByOrderId(
+        tenantId: String,
+        orderId: Long,
+    ): List<Container>
+
+    fun findOrdersByContainerId(
+        tenantId: String,
+        containerId: Long,
+    ): List<Order>
+
+    fun findContainersByPurchaseRef(
+        tenantId: String,
+        purchaseRef: PurchaseRef,
+    ): List<Container>
+
+    fun findOrdersByContainerRef(
+        tenantId: String,
+        containerRef: ContainerRef,
+    ): List<Order>
+
+    fun unlinkOrderAndContainer(
+        tenantId: String,
+        orderId: Long,
+        containerId: Long,
+    ): Boolean
+
+    fun findAllRelationships(tenantId: String): List<OrderContainer>
 }
 
 interface OrderContainerRepository {

@@ -64,6 +64,14 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
         return jdbcTemplate.query(sql, orderRowMapper, tenantId)
     }
 
+    override fun findByBookingRef(
+        tenantId: String,
+        bookingRef: BookingRef,
+    ): List<Order> {
+        val sql = "SELECT * FROM orders WHERE tenant_id = ? AND booking_ref = ? ORDER BY created_at DESC"
+        return jdbcTemplate.query(sql, orderRowMapper, tenantId, bookingRef.value)
+    }
+
     private val orderRowMapper =
         RowMapper<Order> { rs, _ ->
             Order(

@@ -1,0 +1,641 @@
+openapi: 3.0.3
+info:
+  title: Nauta Logistics API
+  description: |
+    REST API for Nauta's logistics management system.
+    
+    This API allows you to:
+    - Query maritime containers and their associated orders
+    - Query purchase orders and their associated containers  
+    - Ingest logistics data received via email
+    
+    ## Authentication
+    All endpoints require JWT authentication via Authorization: Bearer <token> header.
+    The token must include the 'tenant_id' field for multi-tenancy support.
+    
+    **To test the API in Swagger UI:**
+    1. Click the "Authorize" button (🔒) at the top right
+    2. Enter a JWT token in the format: `Bearer your-jwt-token-here`
+    3. The JWT payload should contain: `{"tenant_id": "your-tenant-id"}`
+    
+    ## Formats
+    - Dates: ISO 8601 (2024-08-19T15:30:00.123456Z)
+    - Containers: ISO 6346 (4 letters + 7 digits, e.g: TCLU7654321)
+    - IDs: Alphanumeric strings with descriptive prefixes
+  version: 1.0.0
+  contact:
+    name: Nauta Engineering Team
+    email: engineering@nauta.com
+    url: https://nauta.com
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.nauta.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication. Must include tenant information.
+
+  schemas:
+    # Response DTOs
+    OrderDto:
+      type: object
+      description: Purchase order data
+      required:
+        - id
+        - purchase
+        - tenantId
+        - createdAt
+        - updatedAt
+      example:
+        id: 1001
+        purchase: "PO-NAU-2024-001234"
+        tenantId: "nauta-logistics-001"
+        booking: "HBLA240801001"
+        invoices:
+          - id: 2001
+            invoice: "INV-NAU-2024-005678"
+            tenantId: "nauta-logistics-001"
+            createdAt: "2024-08-19T14:15:30.456789Z"
+            updatedAt: "2024-08-19T14:15:30.456789Z"
+        createdAt: "2024-08-19T15:30:00.123456Z"
+        updatedAt: "2024-08-19T16:45:30.789012Z"
+      properties:
+        id:
+          type: integer
+          description: Unique order ID
+          example: 1001
+        purchase:
+          type: string
+          description: Purchase order number
+          example: "PO-NAU-2024-001234"
+        tenantId:
+          type: string
+          description: Owner tenant ID
+          example: "nauta-logistics-001"
+        booking:
+          type: string
+          nullable: true
+          description: Maritime booking number (optional)
+          example: "HBLA240801001"
+        invoices:
+          type: array
+          nullable: true
+          description: List of associated invoices
+          items:
+            $ref: '#/components/schemas/InvoiceDto'
+        createdAt:
+          type: string
+          description: Creation date and time (ISO 8601)
+          example: "2024-08-19T15:30:00.123456Z"
+        updatedAt:
+          type: string
+          description: Last update date and time (ISO 8601)
+          example: "2024-08-19T16:45:30.789012Z"
+
+    InvoiceDto:
+      type: object
+      description: Commercial invoice data
+      required:
+        - id
+        - invoice
+        - tenantId
+        - createdAt
+        - updatedAt
+      example:
+        id: 2001
+        invoice: "INV-NAU-2024-005678"
+        tenantId: "nauta-logistics-001"
+        createdAt: "2024-08-19T14:15:30.456789Z"
+        updatedAt: "2024-08-19T14:15:30.456789Z"
+      properties:
+        id:
+          type: integer
+          description: Unique invoice ID
+          example: 2001
+        invoice:
+          type: string
+          description: Commercial invoice number
+          example: "INV-NAU-2024-005678"
+        tenantId:
+          type: string
+          description: Owner tenant ID
+          example: "nauta-logistics-001"
+        createdAt:
+          type: string
+          description: Creation date and time (ISO 8601)
+          example: "2024-08-19T14:15:30.456789Z"
+        updatedAt:
+          type: string
+          description: Last update date and time (ISO 8601)
+          example: "2024-08-19T14:15:30.456789Z"
+
+    ContainerDto:
+      type: object
+      description: Maritime container data
+      required:
+        - id
+        - container
+        - tenantId
+        - createdAt
+        - updatedAt
+      example:
+        id: 3001
+        container: "TCLU7654321"
+        tenantId: "nauta-logistics-001"
+        booking: "HBLA240801001"
+        createdAt: "2024-08-19T12:00:00.123456Z"
+        updatedAt: "2024-08-19T13:22:15.789012Z"
+      properties:
+        id:
+          type: integer
+          description: Unique container ID in the system
+          example: 3001
+        container:
+          type: string
+          description: Container code (ISO 6346 format - 4 letters + 7 digits)
+          example: "TCLU7654321"
+        tenantId:
+          type: string
+          description: Owner tenant ID
+          example: "nauta-logistics-001"
+        booking:
+          type: string
+          nullable: true
+          description: Associated maritime booking number (optional)
+          example: "HBLA240801001"
+        createdAt:
+          type: string
+          description: Creation date and time (ISO 8601)
+          example: "2024-08-19T12:00:00.123456Z"
+        updatedAt:
+          type: string
+          description: Last update date and time (ISO 8601)
+          example: "2024-08-19T13:22:15.789012Z"
+
+    # Request DTOs
+    EmailIngestRequest:
+      type: object
+      description: Request for ingesting logistics data received via email
+      example:
+        booking: "HBLA240801001"
+        containers:
+          - container: "TCLU7654321"
+          - container: "MSKU9876543"
+        orders:
+          - purchase: "PO-NAU-2024-001234"
+            invoices:
+              - invoice: "INV-NAU-2024-005678"
+      properties:
+        booking:
+          type: string
+          nullable: true
+          description: Maritime booking number (optional)
+          example: "HBLA240801001"
+        containers:
+          type: array
+          nullable: true
+          description: List of containers to process (optional)
+          items:
+            $ref: '#/components/schemas/ContainerRequest'
+        orders:
+          type: array
+          nullable: true
+          description: List of purchase orders to process (optional)
+          items:
+            $ref: '#/components/schemas/OrderRequest'
+
+    ContainerRequest:
+      type: object
+      description: Container data in ingestion request
+      required:
+        - container
+      example:
+        container: "TCLU7654321"
+      properties:
+        container:
+          type: string
+          description: Container identifier code (ISO 6346 format - 4 uppercase letters + 7 digits)
+          pattern: "^[A-Z]{4}[0-9]{7}$"
+          example: "TCLU7654321"
+
+    OrderRequest:
+      type: object
+      description: Purchase order data in ingestion request
+      required:
+        - purchase
+      example:
+        purchase: "PO-NAU-2024-001234"
+        invoices:
+          - invoice: "INV-NAU-2024-005678"
+      properties:
+        purchase:
+          type: string
+          description: Purchase order identifier number
+          example: "PO-NAU-2024-001234"
+        invoices:
+          type: array
+          nullable: true
+          description: List of associated commercial invoices (optional)
+          items:
+            $ref: '#/components/schemas/InvoiceRequest'
+
+    InvoiceRequest:
+      type: object
+      description: Commercial invoice data in ingestion request
+      required:
+        - invoice
+      example:
+        invoice: "INV-NAU-2024-005678"
+      properties:
+        invoice:
+          type: string
+          description: Commercial invoice identifier number
+          example: "INV-NAU-2024-005678"
+
+    # Error Response DTOs
+    ErrorResponse:
+      type: object
+      description: Standard API error response
+      required:
+        - error
+      example:
+        error: "Missing tenant context"
+      properties:
+        error:
+          type: string
+          description: Descriptive error message
+          examples:
+            - "Missing tenant context"
+            - "Invalid container ID format"
+            - "Invalid token"
+
+    EmailIngestResponse:
+      type: object
+      description: Successful email ingestion response
+      required:
+        - message
+        - idempotencyKey
+      example:
+        message: "Email queued for processing"
+        idempotencyKey: "550e8400-e29b-41d4-a716-446655440000"
+      properties:
+        message:
+          type: string
+          description: Confirmation message
+          example: "Email queued for processing"
+        idempotencyKey:
+          type: string
+          description: Idempotency key used
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+tags:
+  - name: Containers
+    description: API for container management
+  - name: Orders
+    description: API for purchase order management
+  - name: Email
+    description: API for email data ingestion
+
+paths:
+  # Container endpoints
+  /api/containers:
+    get:
+      tags:
+        - Containers
+      summary: Get all containers
+      description: Retrieves the complete list of containers for the current tenant
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of containers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContainerDto'
+              examples:
+                containers:
+                  summary: Sample container list response
+                  value:
+                    - id: 3001
+                      container: "TCLU7654321"
+                      tenantId: "nauta-logistics-001"
+                      booking: "HBLA240801001"
+                      createdAt: "2024-08-19T12:00:00.123456Z"
+                      updatedAt: "2024-08-19T13:22:15.789012Z"
+                    - id: 3002
+                      container: "MSKU9876543"
+                      tenantId: "nauta-logistics-001"
+                      booking: null
+                      createdAt: "2024-08-19T12:05:00.654321Z"
+                      updatedAt: "2024-08-19T12:05:00.654321Z"
+        '400':
+          description: Bad request - missing tenant context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingTenant:
+                  summary: Missing tenant context
+                  value:
+                    error: "Missing tenant context"
+        '401':
+          description: Unauthorized - invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidToken:
+                  summary: Invalid JWT token
+                  value:
+                    error: "Invalid token"
+
+  /api/containers/{containerId}/orders:
+    get:
+      tags:
+        - Containers
+      summary: Get orders for container
+      description: Retrieves all orders associated with a specific container
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: containerId
+          in: path
+          required: true
+          description: Container ID (ISO 6346 format - 4 letters + 7 digits)
+          schema:
+            type: string
+          example: "TCLU7654321"
+      responses:
+        '200':
+          description: Container orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderDto'
+                example:
+                  - id: 1001
+                    purchase: "PO-NAU-2024-001234"
+                    tenantId: "nauta-logistics-001"
+                    booking: "HBLA240801001"
+                    invoices:
+                      - id: 2001
+                        invoice: "INV-NAU-2024-005678"
+                        tenantId: "nauta-logistics-001"
+                        createdAt: "2024-08-19T14:15:30.456789Z"
+                        updatedAt: "2024-08-19T14:15:30.456789Z"
+                    createdAt: "2024-08-19T15:30:00.123456Z"
+                    updatedAt: "2024-08-19T16:45:30.789012Z"
+              examples:
+                containerWithOrder:
+                  summary: Container with associated order and invoice
+                  value:
+                    - id: 1001
+                      purchase: "PO-NAU-2024-001234"
+                      tenantId: "nauta-logistics-001"
+                      booking: "HBLA240801001"
+                      invoices:
+                        - id: 2001
+                          invoice: "INV-NAU-2024-005678"
+                          tenantId: "nauta-logistics-001"
+                          createdAt: "2024-08-19T14:15:30.456789Z"
+                          updatedAt: "2024-08-19T14:15:30.456789Z"
+                      createdAt: "2024-08-19T15:30:00.123456Z"
+                      updatedAt: "2024-08-19T16:45:30.789012Z"
+                containerWithoutOrders:
+                  summary: Empty response when container has no orders
+                  value: []
+        '400':
+          description: Invalid container ID or missing tenant context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidContainerFormat:
+                  summary: Invalid container ID format
+                  value:
+                    error: "Invalid container ID format"
+        '401':
+          description: Unauthorized - invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Order endpoints
+  /api/orders:
+    get:
+      tags:
+        - Orders
+      summary: Get all orders
+      description: Retrieves the complete list of purchase orders for the current tenant
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderDto'
+              examples:
+                orders:
+                  summary: Sample order list response
+                  value:
+                    - id: 1001
+                      purchase: "PO-NAU-2024-001234"
+                      tenantId: "nauta-logistics-001"
+                      booking: "HBLA240801001"
+                      invoices:
+                        - id: 2001
+                          invoice: "INV-NAU-2024-005678"
+                          tenantId: "nauta-logistics-001"
+                          createdAt: "2024-08-19T14:15:30.456789Z"
+                          updatedAt: "2024-08-19T14:15:30.456789Z"
+                      createdAt: "2024-08-19T15:30:00.123456Z"
+                      updatedAt: "2024-08-19T16:45:30.789012Z"
+                    - id: 1002
+                      purchase: "PO-NAU-2024-001235"
+                      tenantId: "nauta-logistics-001"
+                      booking: null
+                      invoices: []
+                      createdAt: "2024-08-19T16:00:00.987654Z"
+                      updatedAt: "2024-08-19T16:00:00.987654Z"
+        '400':
+          description: Bad request - missing tenant context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/orders/{purchaseId}/containers:
+    get:
+      tags:
+        - Orders
+      summary: Get containers for order
+      description: Retrieves all containers associated with a specific purchase order
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: purchaseId
+          in: path
+          required: true
+          description: Purchase order ID
+          schema:
+            type: string
+          example: "PO-NAU-2024-001234"
+      responses:
+        '200':
+          description: Order containers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContainerDto'
+                example:
+                  - id: 3001
+                    container: "TCLU7654321"
+                    tenantId: "nauta-logistics-001"
+                    booking: "HBLA240801001"
+                    createdAt: "2024-08-19T12:00:00.123456Z"
+                    updatedAt: "2024-08-19T13:22:15.789012Z"
+                  - id: 3002
+                    container: "MSKU9876543"
+                    tenantId: "nauta-logistics-001"
+                    booking: "HBLA240801001"
+                    createdAt: "2024-08-19T12:05:00.654321Z"
+                    updatedAt: "2024-08-19T13:25:45.112233Z"
+              examples:
+                orderWithContainers:
+                  summary: Order with associated containers
+                  value:
+                    - id: 3001
+                      container: "TCLU7654321"
+                      tenantId: "nauta-logistics-001"
+                      booking: "HBLA240801001"
+                      createdAt: "2024-08-19T12:00:00.123456Z"
+                      updatedAt: "2024-08-19T13:22:15.789012Z"
+                    - id: 3002
+                      container: "MSKU9876543"
+                      tenantId: "nauta-logistics-001"
+                      booking: "HBLA240801001"
+                      createdAt: "2024-08-19T12:05:00.654321Z"
+                      updatedAt: "2024-08-19T13:25:45.112233Z"
+                orderWithoutContainers:
+                  summary: Empty response when order has no containers
+                  value: []
+        '400':
+          description: Invalid order ID or missing tenant context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized - invalid or missing JWT token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Email endpoint
+  /api/email:
+    post:
+      tags:
+        - Email
+      summary: Ingest data via email
+      description: Processes and queues logistics data (containers and orders) received via email
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Idempotency key to prevent duplicate processing
+          schema:
+            type: string
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      requestBody:
+        description: Email data containing containers and orders to process
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailIngestRequest'
+            examples:
+              fullRequest:
+                summary: Complete email ingestion request
+                value:
+                  booking: "HBLA240801001"
+                  containers:
+                    - container: "TCLU7654321"
+                    - container: "MSKU9876543"
+                  orders:
+                    - purchase: "PO-NAU-2024-001234"
+                      invoices:
+                        - invoice: "INV-NAU-2024-005678"
+              minimalRequest:
+                summary: Minimal email ingestion request
+                value:
+                  containers:
+                    - container: "TCLU7654321"
+      responses:
+        '202':
+          description: Email queued for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailIngestResponse'
+              examples:
+                success:
+                  summary: Email data queued successfully
+                  value:
+                    message: "Email queued for processing"
+                    idempotencyKey: "550e8400-e29b-41d4-a716-446655440000"
+        '400':
+          description: Invalid input data - incorrect format or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                validationError:
+                  summary: Invalid container format
+                  value:
+                    error: "Container ID must match ISO 6346 format: 4 letters + 7 digits"
+        '401':
+          description: Unauthorized - invalid JWT token or missing tenant context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingTenant:
+                  summary: No tenant context available
+                  value:
+                    error: "No tenant context"

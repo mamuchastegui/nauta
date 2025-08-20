@@ -79,6 +79,14 @@ class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : Containe
         return jdbcTemplate.query(sql, containerRowMapper, tenantId, purchaseRef.value)
     }
 
+    override fun findByBookingRef(
+        tenantId: String,
+        bookingRef: BookingRef,
+    ): List<Container> {
+        val sql = "SELECT * FROM containers WHERE tenant_id = ? AND booking_ref = ? ORDER BY created_at DESC"
+        return jdbcTemplate.query(sql, containerRowMapper, tenantId, bookingRef.value)
+    }
+
     private val containerRowMapper =
         RowMapper<Container> { rs, _ ->
             Container(

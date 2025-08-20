@@ -265,6 +265,11 @@ class IngestServiceSimpleTest {
         ): Order? = orders.find { it.purchaseRef == purchaseRef && it.tenantId == tenantId }
 
         override fun findAll(tenantId: String): List<Order> = orders.filter { it.tenantId == tenantId }
+
+        override fun findByBookingRef(
+            tenantId: String,
+            bookingRef: BookingRef,
+        ): List<Order> = orders.filter { it.tenantId == tenantId && it.bookingRef == bookingRef }
     }
 
     class TestContainerRepository : ContainerRepository {
@@ -309,6 +314,11 @@ class IngestServiceSimpleTest {
             // Simple implementation - not used in these tests
             return emptyList()
         }
+
+        override fun findByBookingRef(
+            tenantId: String,
+            bookingRef: BookingRef,
+        ): List<Container> = containers.filter { it.tenantId == tenantId && it.bookingRef == bookingRef }
     }
 
     class TestBookingRepository : BookingRepository {
@@ -369,6 +379,11 @@ class IngestServiceSimpleTest {
             tenantId: String,
             invoiceRef: InvoiceRef,
         ): Invoice? = invoices.find { it.invoiceRef == invoiceRef && it.tenantId == tenantId }
+
+        override fun findByPurchaseRef(
+            tenantId: String,
+            purchaseRef: PurchaseRef,
+        ): List<Invoice> = invoices.filter { it.tenantId == tenantId && it.purchaseRef == purchaseRef }
     }
 
     class TestOrderContainerRepository : OrderContainerRepository {

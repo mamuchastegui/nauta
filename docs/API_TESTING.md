@@ -70,17 +70,15 @@ curl -X POST http://localhost:8080/api/email \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "booking": {
-      "booking_ref": "BK123456"
-    },
+    "booking": "BK123456",
     "orders": [{
-      "purchase_ref": "PO789012",
+      "purchase": "PO789012",
       "invoices": [{
-        "invoice_ref": "INV345678"
+        "invoice": "INV345678"
       }]
     }],
     "containers": [{
-      "container_ref": "ABCD1234567"
+      "container": "ABCD1234567"
     }]
   }'
 ```
@@ -92,27 +90,25 @@ curl -X POST http://localhost:8080/api/email \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "booking": {
-      "booking_ref": "BK789123"
-    },
+    "booking": "BK789123",
     "orders": [
       {
-        "purchase_ref": "PO111222",
+        "purchase": "PO111222",
         "invoices": [
-          {"invoice_ref": "INV111"},
-          {"invoice_ref": "INV222"}
+          {"invoice": "INV111"},
+          {"invoice": "INV222"}
         ]
       },
       {
-        "purchase_ref": "PO333444",
+        "purchase": "PO333444",
         "invoices": [
-          {"invoice_ref": "INV333"}
+          {"invoice": "INV333"}
         ]
       }
     ],
     "containers": [
-      {"container_ref": "CONT1234567"},
-      {"container_ref": "CONT7654321"}
+      {"container": "CONT1234567"},
+      {"container": "CONT7654321"}
     ]
   }'
 ```
@@ -121,9 +117,8 @@ curl -X POST http://localhost:8080/api/email \
 
 ```json
 {
-  "status": "accepted",
   "message": "Email queued for processing",
-  "timestamp": "2024-01-15T10:30:00Z"
+  "idempotencyKey": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -142,14 +137,21 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ```json
 [
   {
-    "purchaseRef": "PO789012",
+    "id": 1001,
+    "purchase": "PO789012",
     "tenantId": "tenant-123",
+    "booking": "BK123456",
     "invoices": [
       {
-        "invoiceRef": "INV345678",
-        "tenantId": "tenant-123"
+        "id": 2001,
+        "invoice": "INV345678",
+        "tenantId": "tenant-123",
+        "createdAt": "2024-08-19T14:15:30.456789Z",
+        "updatedAt": "2024-08-19T14:15:30.456789Z"
       }
-    ]
+    ],
+    "createdAt": "2024-08-19T15:30:00.123456Z",
+    "updatedAt": "2024-08-19T16:45:30.789012Z"
   }
 ]
 ```
@@ -169,15 +171,19 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ```json
 [
   {
-    "containerRef": "ABCD1234567",
-    "tenantId": "tenant-123"
+    "id": 3001,
+    "container": "ABCD1234567",
+    "tenantId": "tenant-123",
+    "booking": "BK123456",
+    "createdAt": "2024-08-19T12:00:00.123456Z",
+    "updatedAt": "2024-08-19T13:22:15.789012Z"
   }
 ]
 ```
 
 ### 4. Get Containers for Specific Order
 
-**Endpoint**: `GET /api/orders/{purchaseRef}/containers`  
+**Endpoint**: `GET /api/orders/{purchaseId}/containers`  
 **Purpose**: Retrieve containers associated with a specific order
 
 ```bash
@@ -190,15 +196,19 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ```json
 [
   {
-    "containerRef": "ABCD1234567",
-    "tenantId": "tenant-123"
+    "id": 3001,
+    "container": "ABCD1234567",
+    "tenantId": "tenant-123",
+    "booking": "BK123456",
+    "createdAt": "2024-08-19T12:00:00.123456Z",
+    "updatedAt": "2024-08-19T13:22:15.789012Z"
   }
 ]
 ```
 
 ### 5. Get Orders for Specific Container
 
-**Endpoint**: `GET /api/containers/{containerRef}/orders`  
+**Endpoint**: `GET /api/containers/{containerId}/orders`  
 **Purpose**: Retrieve orders associated with a specific container
 
 ```bash
@@ -211,14 +221,21 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 ```json
 [
   {
-    "purchaseRef": "PO789012",
+    "id": 1001,
+    "purchase": "PO789012",
     "tenantId": "tenant-123",
+    "booking": "BK123456",
     "invoices": [
       {
-        "invoiceRef": "INV345678",
-        "tenantId": "tenant-123"
+        "id": 2001,
+        "invoice": "INV345678",
+        "tenantId": "tenant-123",
+        "createdAt": "2024-08-19T14:15:30.456789Z",
+        "updatedAt": "2024-08-19T14:15:30.456789Z"
       }
-    ]
+    ],
+    "createdAt": "2024-08-19T15:30:00.123456Z",
+    "updatedAt": "2024-08-19T16:45:30.789012Z"
   }
 ]
 ```

@@ -41,6 +41,9 @@ src/main/kotlin/com/nauta/takehome/
 │       └── ApplicationConfig.kt  # Beans, Jackson Kotlin, SQS client
 ```
 
+### Infrastructure Diagram (simplified)
+![Architecture](docs/architecture.png)
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -127,9 +130,9 @@ See [API Testing Guide](docs/API_TESTING.md) for comprehensive testing examples.
 # Environment
 make setup-dev         # Start PostgreSQL + LocalStack, create SQS queues
 make validate-local    # Check all services are healthy
-make clean-env         # Clean and reset environment
+make clean-env         # Clean docker environment completely
 
-# Application  
+# Application
 make run-local         # Run with local profile
 make run-dev-aws       # Run with AWS dev profile
 make test              # Run tests
@@ -156,12 +159,12 @@ Generate and view test coverage report:
 make coverage  # Generates HTML report and opens in browser
 ```
 
-**Current Coverage:** ~75% overall
-- **Domain Logic**: 86% (business rules and value objects)
-- **Security**: 90% (JWT authentication and tenant isolation)
-- **Web Controllers**: 84% (API endpoints)
-- **Persistence**: 82% (repository implementations)
-- **Messaging**: 45% (SQS event publishing and consuming)
+**Current Coverage:** ~72% overall
+- **Domain Logic**: 88% (business rules and value objects)
+- **Security**: 91% (JWT authentication and tenant isolation)
+- **Web Controllers**: 71% (API endpoints)
+- **Persistence**: 83% (repository implementations)
+- **Messaging**: 25% (SQS event publishing and consuming)
 
 ## ✅ Implementation Status
 
@@ -184,43 +187,27 @@ make coverage  # Generates HTML report and opens in browser
 - [x] **Basic monitoring** with Spring Boot Actuator health and metrics endpoints
 - [x] **Code quality** with ktlint and detekt static analysis
 
-### Technical Implementation Summary
-
-**Core functionality delivered:**
-- Multi-tenant data isolation with JWT authentication
-- Progressive data linking algorithms with confidence scoring
-- Event-driven architecture using SQS messaging with circuit breaker resilience
-- Database performance optimization with 7 strategic indexes for tenant-based queries
-- Comprehensive test suite covering domain logic and integration scenarios
-- Code quality maintained with automated linting and static analysis tools
-
-**Architecture highlights:**
-- Hexagonal architecture with clear domain boundaries
-- Kotlin value classes with business validation (ISO 6346 for container references)
-- Repository pattern with upsert operations for data consistency
-- Docker-based development environment with LocalStack for local testing
-
 ## 🏆 Technical Highlights
 
-- **Clean Architecture**: Hexagonal design with clear separation between domain, application, and infrastructure layers
-- **Type Safety**: Kotlin value classes with domain-specific validation (ISO 6346 format for container references)
-- **Multi-tenancy**: JWT-based authentication with tenant data isolation at the database level
-- **Progressive Linking**: Intelligent algorithms for order-container relationships with confidence scoring
-- **Performance**: Strategic database indexing and HikariCP connection pooling
-- **Resilience**: Circuit breaker pattern implemented for SQS messaging with fallback handling
-- **Testing**: Unit tests for domain logic and integration tests using TestContainers
-- **Development**: Docker Compose setup with LocalStack for local SQS simulation
+- **Clean Architecture**: Hexagonal design with clear domain boundaries and separation of concerns
+- **Type Safety**: Kotlin value classes with business validation (ISO 6346 format for container references)
+- **Multi-tenancy**: JWT-based authentication with complete tenant data isolation
+- **Progressive Linking**: Smart order-container relationship algorithms with confidence scoring
+- **Event-Driven**: SQS messaging with circuit breaker resilience and error handling
+- **Performance**: Strategic database indexing and connection pooling for tenant-based queries
+- **Testing**: Comprehensive test suite with TestContainers for realistic integration scenarios
+- **Development**: Docker Compose environment with LocalStack for local SQS simulation
 
 ## 🤝 Contributing
 
 1. Follow the existing hexagonal architecture patterns
-2. Add tests for new functionality  
+2. Add tests for new functionality
 3. Update documentation for significant changes
 4. Use the development commands for consistent workflow
 
 ## 📋 Need Help?
 
 - **Environment issues**: See [Environment Configuration](docs/ENVIRONMENT.md)
-- **API problems**: Check [API Testing Guide](docs/API_TESTING.md)  
+- **API problems**: Check [API Testing Guide](docs/API_TESTING.md)
 - **Build/deployment**: Review [Development Commands](docs/DEVELOPMENT.md)
 - **Errors/debugging**: Consult [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
