@@ -41,73 +41,83 @@ This document outlines the natural evolution path from the current take-home imp
 
 ## 🚀 Production Evolution: Event-Driven CQRS Architecture
 
-### Phase 1: Event Sourcing Foundation
+### Phase 1: CQRS Foundation (PostgreSQL + Redis)
 
 ```mermaid
 graph TD
-    A[Email Ingestion API] --> B[Kafka: logistics-events]
-    B --> C[Relationship Service]
-    B --> D[Query Optimization Service]
+    A[Email Ingestion API] --> B[SQS: logistics-events]
+    B --> C[Ingest/Linking Service]
     
     C --> E[PostgreSQL: Write Model]
-    D --> F[DynamoDB: Read Model]
+    C --> F[Redis: Read Cache + Projections]
     
     G[API Gateway] --> H{Query Type}
     H -->|Complex Relations| C
-    H -->|Fast Queries| D
-    H -->|Reconciliation| I[Consistency Service]
+    H -->|Fast Queries| F
+    H -->|Reconciliation| I[Reconciliation Job]
     
-    E --> J[Event Store]
-    F --> K[Analytics Pipeline]
+    E --> J[Outbox Table]
+    J --> B
 ```
 
 ### Core Benefits
 
 #### 🎯 **Separation of Concerns**
 ```kotlin
-// Service A: Complex Relationship Management
-@KafkaListener("logistics-events")
-class RelationshipService {
+// Single Service: Ingest and Linking with Outbox
+@SqsListener("logistics-events")
+class IngestLinkingService {
+    @Transactional
     fun processEvent(event: LogisticsEvent) {
-        // AI/ML-based relationship inference
-        // Complex business rule processing
-        // Audit trail management
-        // Compliance validation
+        // Business rule processing and relationship inference
+        val result = processBusinessLogic(event)
+        
+        // Outbox pattern for eventual consistency
+        outboxRepository.save(OutboxEvent(result))
+        
+        // Update read projections (materialized view or Redis)
+        readProjectionService.updateProjection(result)
     }
 }
 
-// Service B: Query Performance Optimization  
-@KafkaListener("logistics-events")
-class QueryOptimizationService {
-    fun processEvent(event: LogisticsEvent) {
-        // Denormalized read views
-        // Pre-computed aggregations
-        // Fast lookup structures
+// Separate Reconciliation Job
+@Scheduled("0 */15 * * * *") // Every 15 minutes
+class ReconciliationService {
+    fun reconcileRelationships() {
+        // Find and fix inconsistencies
+        // Run confidence scoring updates
     }
 }
 ```
 
 #### ⚡ **Performance Optimization**
 ```kotlin
-// DynamoDB: Ultra-fast queries (< 5ms)
-// Partition Key: tenant_id#booking_ref
-// Sort Key: entity_type#entity_id
-fun findByBookingRef(tenantId: String, bookingRef: String): List<LogisticsItem>
+// Redis: Fast cached queries (target p95 < 20ms)
+// Key pattern: tenant:{tenantId}:booking:{bookingRef}
+fun findByBookingRef(tenantId: String, bookingRef: String): List<LogisticsItem> {
+    return redis.get("tenant:$tenantId:booking:$bookingRef")
+        ?: fallbackToPostgreSQL(tenantId, bookingRef)
+}
 
-// PostgreSQL: Complex analytical queries
+// PostgreSQL: Complex analytical queries and writes
 fun findPotentialMatches(similarity: Double): List<RelationshipCandidate>
 fun generateComplianceReport(dateRange: DateRange): ComplianceReport
+
+// Materialized View: Pre-computed aggregations
+CREATE MATERIALIZED VIEW tenant_booking_summary AS
+SELECT tenant_id, booking_ref, COUNT(*) as total_containers
+FROM order_containers GROUP BY tenant_id, booking_ref;
 ```
 
-### Phase 2: Advanced Analytics & ML
+### Phase 2: Kafka + Advanced Analytics (Future)
 
 ```mermaid
 graph LR
-    A[Kafka Events] --> B[Kinesis Analytics]
-    A --> C[ML Pipeline]
+    A[Kafka Events] --> B[Stream Processing]
+    A --> C[ML Pipeline - Phase 3]
     
     B --> D[Real-time Dashboards]
-    C --> E[Relationship AI]
+    C --> E[Relationship AI - Future]
     
     E --> F[Confidence Scoring]
     E --> G[Anomaly Detection]
@@ -116,7 +126,7 @@ graph LR
     F --> I[Auto-linking Service]
 ```
 
-#### 🤖 **Machine Learning Integration**
+#### 🤖 **Machine Learning Integration (Phase 3 - Future Exploration)**
 ```kotlin
 class IntelligentLinkingService {
     fun inferRelationships(context: LogisticsContext): List<RelationshipSuggestion> {
@@ -127,8 +137,8 @@ class IntelligentLinkingService {
             // Rule 2: Temporal correlation (confidence: 0.8)
             hasTemporalProximity(context) -> temporalMatch(context)
             
-            // Rule 3: ML-based inference (confidence: 0.6)
-            hasMLSignals(context) -> mlBasedMatch(context)
+            // Future: ML-based inference when data volume justifies it
+            // hasMLSignals(context) -> mlBasedMatch(context)
             
             else -> emptyList()
         }
@@ -152,26 +162,26 @@ class OperationalMetricsProcessor {
 }
 ```
 
-### Phase 3: Global Scale & Multi-Region
+### Phase 3: Multi-Region (Future - Active-Active)
 
 ```mermaid
 graph TB
-    subgraph "US-East"
+    subgraph "US-East (Future)"
         A1[API Gateway] --> B1[Services]
-        B1 --> C1[DynamoDB]
+        B1 --> C1[Redis + DynamoDB]
         B1 --> D1[PostgreSQL]
     end
     
-    subgraph "EU-West"  
+    subgraph "EU-West (Future)"  
         A2[API Gateway] --> B2[Services]
-        B2 --> C2[DynamoDB]
+        B2 --> C2[Redis + DynamoDB]
         B2 --> D2[PostgreSQL]
     end
     
-    E[Global Event Bus] --> A1
+    E[Global Event Bus - Kafka] --> A1
     E --> A2
     
-    F[Cross-Region Sync] --> C1
+    F[Cross-Region Async Replication] --> C1
     F --> C2
 ```
 
@@ -232,28 +242,30 @@ class FeatureFlaggedRepository : OrderContainerRepository {
 
 | Metric | Current (Take-Home) | Target (Production) |
 |--------|-------------------|-------------------|
-| **Query Latency** | 50-200ms | 5-15ms |
-| **Write Throughput** | 100 ops/sec | 10,000 ops/sec |
-| **Concurrent Users** | 100 | 100,000 |
-| **Data Volume** | 1M relationships | 1B+ relationships |
-| **Availability** | 99.9% | 99.99% |
-| **Recovery Time** | 10 minutes | 30 seconds |
+| **Query Latency** | 50-200ms | Target p95 < 20ms |
+| **Write Throughput** | ~100 ops/sec | Target ~1,000-5,000 ops/sec |
+| **Concurrent Users** | ~100 | Target 10,000+ |
+| **Data Volume** | ~1M relationships | Scale to 100M+ relationships |
+| **Availability** | 99.9% | Target 99.95%+ |
+| **Recovery Time** | ~10 minutes | Target < 2 minutes |
 
 ### Cost Optimization
 
 ```yaml
 # Current Infrastructure
-PostgreSQL: $500/month (single instance)
-SQS: $50/month
-EC2: $200/month
-Total: $750/month
+PostgreSQL: ~$500/month (single instance)
+SQS: ~$50/month
+EC2: ~$200/month
+Total: ~$750/month
 
-# Target Infrastructure  
-DynamoDB: $300/month (auto-scaling)
-Kafka MSK: $400/month
-Lambda: $100/month (serverless)
-PostgreSQL: $200/month (read replicas)
-Total: $1000/month (33% increase for 100x capacity)
+# Phase 1 Target Infrastructure  
+PostgreSQL: ~$400/month (with read replicas)
+Redis: ~$200/month (managed cache)
+SQS: ~$100/month (higher volume)
+EC2: ~$300/month (load balanced)
+Total: ~$1000/month (moderate increase for significant capacity boost)
+
+# Future phases would add Kafka, DynamoDB as needed
 ```
 
 ---
@@ -303,10 +315,10 @@ class DataQualityMonitor {
 ## 🎯 Business Value Proposition
 
 ### Immediate Benefits (Phase 1)
-- **5x faster queries** for customer-facing operations
-- **10x higher throughput** for data ingestion
+- **Improved query performance** with Redis caching (target 2-5x faster)
+- **Higher throughput** for data ingestion (target 5-10x current capacity)
 - **Zero-downtime deployments** with blue-green strategy
-- **Automatic failover** across availability zones
+- **Better resilience** with read replicas and caching
 
 ### Medium-term Benefits (Phase 2)  
 - **AI-driven insights** for logistics optimization
