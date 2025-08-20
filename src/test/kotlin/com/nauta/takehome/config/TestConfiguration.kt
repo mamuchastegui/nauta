@@ -21,7 +21,10 @@ class TestConfiguration {
     @Bean
     @Primary
     fun mockSqsClient(): SqsClient {
-        return Mockito.mock(SqsClient::class.java)
+        val mock = Mockito.mock(SqsClient::class.java)
+        // Reset any potential verification issues
+        Mockito.reset(mock)
+        return mock
     }
 
     @Bean
