@@ -1,6 +1,7 @@
 package com.nauta.takehome.infrastructure.persistence
 
 import com.nauta.takehome.application.InvoiceRepository
+import com.nauta.takehome.application.InvoiceUpsertRequest
 import com.nauta.takehome.domain.Invoice
 import com.nauta.takehome.domain.InvoiceRef
 import com.nauta.takehome.domain.PurchaseRef
@@ -43,6 +44,48 @@ class JdbcInvoiceRepository(private val jdbcTemplate: JdbcTemplate) : InvoiceRep
             Timestamp.from(now),
             Timestamp.from(now),
         )!!
+    }
+
+    override fun batchUpsertByRef(
+        tenantId: String,
+        invoiceRequests: List<InvoiceUpsertRequest>,
+    ): List<Invoice> {
+        if (invoiceRequests.isEmpty()) {
+            return emptyList()
+        }
+
+        val now = Instant.now()
+        val sql =
+            """
+            INSERT INTO invoices (invoice_ref, purchase_ref, tenant_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (invoice_ref, tenant_id)
+            DO UPDATE SET
+                purchase_ref = EXCLUDED.purchase_ref,
+                updated_at = EXCLUDED.updated_at
+            RETURNING *
+            """.trimIndent()
+
+        val results = mutableListOf<Invoice>()
+
+        // Process in chunks to avoid parameter limits and improve performance
+        invoiceRequests.chunked(100).forEach { chunk ->
+            chunk.forEach { request ->
+                val invoice = jdbcTemplate.queryForObject(
+                    sql,
+                    invoiceRowMapper,
+                    request.invoiceRef.value,
+                    request.purchaseRef.value,
+                    tenantId,
+                    Timestamp.from(now),
+                    Timestamp.from(now),
+                )!!
+                results.add(invoice)
+            }
+        }
+
+        logger.debug("Batch upserted ${invoiceRequests.size} invoices for tenant: $tenantId")
+        return results
     }
 
     override fun findByInvoiceRef(

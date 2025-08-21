@@ -1,5 +1,6 @@
 package com.nauta.takehome.infrastructure.persistence
 
+import com.nauta.takehome.application.OrderContainerLinkRequest
 import com.nauta.takehome.application.OrderContainerRepository
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.ContainerRef
@@ -25,6 +26,7 @@ class JdbcOrderContainerRepository(
         orderId: Long,
         containerId: Long,
         linkingReason: LinkingReason,
+        confidenceScore: BigDecimal,
     ): OrderContainer {
         // Validate that both order and container belong to the specified tenant
         validateTenantOwnership(tenantId, orderId, containerId)
@@ -48,7 +50,7 @@ class JdbcOrderContainerRepository(
                 containerId,
                 tenantId,
                 linkingReason.name.lowercase(),
-                BigDecimal("1.00"),
+                confidenceScore,
             )!!
         } catch (e: DuplicateKeyException) {
             logger.debug("Relationship already exists between order $orderId and container $containerId", e)
@@ -56,6 +58,40 @@ class JdbcOrderContainerRepository(
             checkNotNull(existingRelationship) { "Failed to create or find relationship" }
             existingRelationship
         }
+    }
+
+    override fun batchLinkOrdersAndContainers(
+        tenantId: String,
+        linkRequests: List<OrderContainerLinkRequest>,
+    ): List<OrderContainer> {
+        if (linkRequests.isEmpty()) {
+            return emptyList()
+        }
+
+        val results = mutableListOf<OrderContainer>()
+
+        // Process in chunks to avoid parameter limits and improve performance
+        linkRequests.chunked(50).forEach { chunk ->
+            chunk.forEach { request ->
+                try {
+                    val result = linkOrderAndContainer(
+                        tenantId,
+                        request.orderId,
+                        request.containerId,
+                        request.linkingReason,
+                        request.confidenceScore
+                    )
+                    results.add(result)
+                } catch (e: DuplicateKeyException) {
+                    logger.debug("Relationship already exists between order ${request.orderId} and container ${request.containerId}", e)
+                } catch (e: SecurityException) {
+                    logger.warn("Security validation failed for order ${request.orderId} and container ${request.containerId}: ${e.message}")
+                }
+            }
+        }
+
+        logger.debug("Batch processed ${linkRequests.size} link requests, created ${results.size} relationships for tenant: $tenantId")
+        return results
     }
 
     private fun validateTenantOwnership(

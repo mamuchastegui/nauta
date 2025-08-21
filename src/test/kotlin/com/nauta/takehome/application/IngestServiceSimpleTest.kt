@@ -230,6 +230,47 @@ class IngestServiceSimpleTest {
         }
     }
 
+    @Test
+    fun `should calculate correct confidence scores for different linking reasons`() {
+        // Test BOOKING_MATCH scenario (should have confidence 1.00)
+        val bookingMessage =
+            IngestMessage(
+                tenantId = tenantId,
+                booking = BookingData("BK123"),
+                orders = listOf(OrderData("PO001", emptyList())),
+                containers = listOf(ContainerData("TCLU1234567")),
+            )
+
+        ingestService.processIngestMessage(bookingMessage)
+
+        val bookingRelationships = orderContainerRepository.findAllRelationships(tenantId)
+        assertEquals(1, bookingRelationships.size)
+        
+        val bookingRelationship = bookingRelationships.first()
+        assertEquals(LinkingReason.BOOKING_MATCH, bookingRelationship.linkingReason)
+        assertEquals(BigDecimal("1.00"), bookingRelationship.confidenceScore)
+
+        // Test SYSTEM_MIGRATION scenario (should have confidence 0.35)
+        orderContainerRepository.relationships.clear()
+
+        val migrationMessage =
+            IngestMessage(
+                tenantId = tenantId,
+                booking = null, // No booking = fallback to SYSTEM_MIGRATION
+                orders = listOf(OrderData("PO002", emptyList())),
+                containers = listOf(ContainerData("TCLU7654321")),
+            )
+
+        ingestService.processIngestMessage(migrationMessage)
+
+        val migrationRelationships = orderContainerRepository.findAllRelationships(tenantId)
+        assertEquals(1, migrationRelationships.size)
+        
+        val migrationRelationship = migrationRelationships.first()
+        assertEquals(LinkingReason.SYSTEM_MIGRATION, migrationRelationship.linkingReason)
+        assertEquals(BigDecimal("0.35"), migrationRelationship.confidenceScore)
+    }
+
     // Test repository implementations
     class TestOrderRepository : OrderRepository {
         val orders = mutableListOf<Order>()
@@ -270,6 +311,15 @@ class IngestServiceSimpleTest {
             tenantId: String,
             bookingRef: BookingRef,
         ): List<Order> = orders.filter { it.tenantId == tenantId && it.bookingRef == bookingRef }
+
+        override fun batchUpsertByRef(
+            tenantId: String,
+            orderRequests: List<OrderUpsertRequest>,
+        ): List<Order> {
+            return orderRequests.map { request ->
+                upsertByRef(tenantId, request.purchaseRef, request.bookingRef)
+            }
+        }
     }
 
     class TestContainerRepository : ContainerRepository {
@@ -319,6 +369,15 @@ class IngestServiceSimpleTest {
             tenantId: String,
             bookingRef: BookingRef,
         ): List<Container> = containers.filter { it.tenantId == tenantId && it.bookingRef == bookingRef }
+
+        override fun batchUpsertByRef(
+            tenantId: String,
+            containerRequests: List<ContainerUpsertRequest>,
+        ): List<Container> {
+            return containerRequests.map { request ->
+                upsertByRef(tenantId, request.containerRef, request.bookingRef)
+            }
+        }
     }
 
     class TestBookingRepository : BookingRepository {
@@ -384,6 +443,15 @@ class IngestServiceSimpleTest {
             tenantId: String,
             purchaseRef: PurchaseRef,
         ): List<Invoice> = invoices.filter { it.tenantId == tenantId && it.purchaseRef == purchaseRef }
+
+        override fun batchUpsertByRef(
+            tenantId: String,
+            invoiceRequests: List<InvoiceUpsertRequest>,
+        ): List<Invoice> {
+            return invoiceRequests.map { request ->
+                upsertByRef(tenantId, request.invoiceRef, request.purchaseRef)
+            }
+        }
     }
 
     class TestOrderContainerRepository : OrderContainerRepository {
@@ -395,6 +463,7 @@ class IngestServiceSimpleTest {
             orderId: Long,
             containerId: Long,
             linkingReason: LinkingReason,
+            confidenceScore: BigDecimal,
         ): OrderContainer {
             val existing =
                 relationships.find {
@@ -411,7 +480,7 @@ class IngestServiceSimpleTest {
                     containerId = containerId,
                     tenantId = tenantId,
                     linkingReason = linkingReason,
-                    confidenceScore = BigDecimal("1.00"),
+                    confidenceScore = confidenceScore,
                 )
             relationships.add(newRelationship)
             return newRelationship
@@ -447,5 +516,14 @@ class IngestServiceSimpleTest {
             relationships.filter {
                 it.tenantId == tenantId
             }
+
+        override fun batchLinkOrdersAndContainers(
+            tenantId: String,
+            linkRequests: List<OrderContainerLinkRequest>,
+        ): List<OrderContainer> {
+            return linkRequests.map { request ->
+                linkOrderAndContainer(tenantId, request.orderId, request.containerId, request.linkingReason, request.confidenceScore)
+            }
+        }
     }
 }

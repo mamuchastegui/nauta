@@ -1,6 +1,7 @@
 package com.nauta.takehome.infrastructure.persistence
 
 import com.nauta.takehome.application.OrderRepository
+import com.nauta.takehome.application.OrderUpsertRequest
 import com.nauta.takehome.domain.BookingRef
 import com.nauta.takehome.domain.Order
 import com.nauta.takehome.domain.PurchaseRef
@@ -43,6 +44,48 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
             Timestamp.from(now),
             Timestamp.from(now),
         )!!
+    }
+
+    override fun batchUpsertByRef(
+        tenantId: String,
+        orderRequests: List<OrderUpsertRequest>,
+    ): List<Order> {
+        if (orderRequests.isEmpty()) {
+            return emptyList()
+        }
+
+        val now = Instant.now()
+        val sql =
+            """
+            INSERT INTO orders (purchase_ref, tenant_id, booking_ref, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (purchase_ref, tenant_id)
+            DO UPDATE SET
+                booking_ref = EXCLUDED.booking_ref,
+                updated_at = EXCLUDED.updated_at
+            RETURNING *
+            """.trimIndent()
+
+        val results = mutableListOf<Order>()
+
+        // Process in chunks to avoid parameter limits and improve performance
+        orderRequests.chunked(100).forEach { chunk ->
+            chunk.forEach { request ->
+                val order = jdbcTemplate.queryForObject(
+                    sql,
+                    orderRowMapper,
+                    request.purchaseRef.value,
+                    tenantId,
+                    request.bookingRef?.value,
+                    Timestamp.from(now),
+                    Timestamp.from(now),
+                )!!
+                results.add(order)
+            }
+        }
+
+        logger.debug("Batch upserted ${orderRequests.size} orders for tenant: $tenantId")
+        return results
     }
 
     override fun findByPurchaseRef(

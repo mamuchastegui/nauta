@@ -1,6 +1,7 @@
 package com.nauta.takehome.infrastructure.persistence
 
 import com.nauta.takehome.application.ContainerRepository
+import com.nauta.takehome.application.ContainerUpsertRequest
 import com.nauta.takehome.domain.BookingRef
 import com.nauta.takehome.domain.Container
 import com.nauta.takehome.domain.ContainerRef
@@ -44,6 +45,48 @@ class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : Containe
             Timestamp.from(now),
             Timestamp.from(now),
         )!!
+    }
+
+    override fun batchUpsertByRef(
+        tenantId: String,
+        containerRequests: List<ContainerUpsertRequest>,
+    ): List<Container> {
+        if (containerRequests.isEmpty()) {
+            return emptyList()
+        }
+
+        val now = Instant.now()
+        val sql =
+            """
+            INSERT INTO containers (container_ref, tenant_id, booking_ref, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (container_ref, tenant_id)
+            DO UPDATE SET
+                booking_ref = EXCLUDED.booking_ref,
+                updated_at = EXCLUDED.updated_at
+            RETURNING *
+            """.trimIndent()
+
+        val results = mutableListOf<Container>()
+
+        // Process in chunks to avoid parameter limits and improve performance
+        containerRequests.chunked(100).forEach { chunk ->
+            chunk.forEach { request ->
+                val container = jdbcTemplate.queryForObject(
+                    sql,
+                    containerRowMapper,
+                    request.containerRef.value,
+                    tenantId,
+                    request.bookingRef?.value,
+                    Timestamp.from(now),
+                    Timestamp.from(now),
+                )!!
+                results.add(container)
+            }
+        }
+
+        logger.debug("Batch upserted ${containerRequests.size} containers for tenant: $tenantId")
+        return results
     }
 
     override fun findByContainerRef(

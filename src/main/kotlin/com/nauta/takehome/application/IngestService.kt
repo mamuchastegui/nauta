@@ -13,6 +13,7 @@ import com.nauta.takehome.domain.PurchaseRef
 import com.nauta.takehome.infrastructure.web.EmailIngestRequest
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.math.BigDecimal
 
 @Service
 class IngestService(
@@ -68,30 +69,40 @@ class IngestService(
                 bookingRepository.upsertByRef(tenantId, bookingRef)
             }
 
-        // Process orders and their invoices
-        val processedOrders = mutableListOf<Order>()
-        message.orders.forEach { orderData ->
+        // Process orders using batch operation
+        val orderRequests = message.orders.map { orderData ->
             val purchaseRef = PurchaseRef(orderData.purchaseRef)
             val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
-
-            val order = orderRepository.upsertByRef(tenantId, purchaseRef, bookingRef)
-            processedOrders.add(order)
-
-            // Process invoices for this order
-            orderData.invoices.forEach { invoiceData ->
-                val invoiceRef = InvoiceRef(invoiceData.invoiceRef)
-                invoiceRepository.upsertByRef(tenantId, invoiceRef, purchaseRef)
-            }
+            OrderUpsertRequest(purchaseRef, bookingRef)
+        }
+        val processedOrders = if (orderRequests.isNotEmpty()) {
+            orderRepository.batchUpsertByRef(tenantId, orderRequests)
+        } else {
+            emptyList()
         }
 
-        // Process containers
-        val processedContainers = mutableListOf<Container>()
-        message.containers.forEach { containerData ->
+        // Process invoices using batch operation
+        val invoiceRequests = message.orders.flatMap { orderData ->
+            val purchaseRef = PurchaseRef(orderData.purchaseRef)
+            orderData.invoices.map { invoiceData ->
+                val invoiceRef = InvoiceRef(invoiceData.invoiceRef)
+                InvoiceUpsertRequest(invoiceRef, purchaseRef)
+            }
+        }
+        if (invoiceRequests.isNotEmpty()) {
+            invoiceRepository.batchUpsertByRef(tenantId, invoiceRequests)
+        }
+
+        // Process containers using batch operation
+        val containerRequests = message.containers.map { containerData ->
             val containerRef = ContainerRef(containerData.containerRef)
             val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
-
-            val container = containerRepository.upsertByRef(tenantId, containerRef, bookingRef)
-            processedContainers.add(container)
+            ContainerUpsertRequest(containerRef, bookingRef)
+        }
+        val processedContainers = if (containerRequests.isNotEmpty()) {
+            containerRepository.batchUpsertByRef(tenantId, containerRequests)
+        } else {
+            emptyList()
         }
 
         // Progressive linking: Create M:N relationships between orders and containers
@@ -129,8 +140,9 @@ class IngestService(
         bookingRef: BookingRef,
     ) {
         // Link orders and containers that belong to the same booking
-        val eligibleOrders = orders.filter { it.bookingRef == bookingRef }
-        val eligibleContainers = containers.filter { it.bookingRef == bookingRef }
+        // Include items that already have this booking OR items that should inherit it (null booking in current payload)
+        val eligibleOrders = orders.filter { it.bookingRef == bookingRef || it.bookingRef == null }
+        val eligibleContainers = containers.filter { it.bookingRef == bookingRef || it.bookingRef == null }
 
         linkAllToAll(tenantId, eligibleOrders, eligibleContainers, LinkingReason.BOOKING_MATCH)
     }
@@ -141,32 +153,58 @@ class IngestService(
         containers: List<Container>,
         linkingReason: LinkingReason,
     ) {
-        orders.forEach { order ->
-            containers.forEach { container ->
-                linkOrderAndContainerSafely(tenantId, order, container, linkingReason)
+        if (orders.isEmpty() || containers.isEmpty()) {
+            return
+        }
+
+        // Build all combinations as link requests with calculated confidence scores
+        val confidenceScore = calculateConfidenceScore(linkingReason)
+        val linkRequests = orders.flatMap { order ->
+            containers.mapNotNull { container ->
+                if (order.id != null && container.id != null) {
+                    OrderContainerLinkRequest(order.id, container.id, linkingReason, confidenceScore)
+                } else {
+                    logger.warn("Skipping link for order ${order.id} or container ${container.id} with null ID")
+                    null
+                }
+            }
+        }
+
+        if (linkRequests.isNotEmpty()) {
+            try {
+                orderContainerRepository.batchLinkOrdersAndContainers(tenantId, linkRequests)
+                logger.debug("Batch linked ${linkRequests.size} order-container relationships for tenant: $tenantId")
+            } catch (e: Exception) {
+                logger.warn("Batch linking failed, falling back to individual links", e)
+                // Fallback to individual linking
+                linkRequests.forEach { request ->
+                    try {
+                        orderContainerRepository.linkOrderAndContainer(
+                            tenantId,
+                            request.orderId,
+                            request.containerId,
+                            request.linkingReason,
+                            request.confidenceScore
+                        )
+                    } catch (e: Exception) {
+                        logger.debug("Individual link failed for order ${request.orderId} and container ${request.containerId}", e)
+                    }
+                }
             }
         }
     }
 
-    private fun linkOrderAndContainerSafely(
-        tenantId: String,
-        order: Order,
-        container: Container,
-        linkingReason: LinkingReason,
-    ) {
-        if (order.id == null || container.id == null) return
-
-        try {
-            orderContainerRepository.linkOrderAndContainer(
-                tenantId = tenantId,
-                orderId = order.id,
-                containerId = container.id,
-                linkingReason = linkingReason,
-            )
-        } catch (e: org.springframework.dao.DuplicateKeyException) {
-            logger.debug("Link already exists between order ${order.id} and container ${container.id}", e)
-        } catch (e: org.springframework.dao.DataIntegrityViolationException) {
-            logger.warn("Data integrity violation linking order ${order.id} to container ${container.id}", e)
+    /**
+     * Calculates confidence score based on the linking reason.
+     * Higher scores indicate more reliable relationships.
+     */
+    private fun calculateConfidenceScore(linkingReason: LinkingReason): BigDecimal {
+        return when (linkingReason) {
+            LinkingReason.BOOKING_MATCH -> BigDecimal("1.00")        // Máxima confianza - mismo booking
+            LinkingReason.MANUAL -> BigDecimal("0.95")               // Alta confianza - admin manual
+            LinkingReason.AI_INFERENCE -> BigDecimal("0.70")         // Media confianza - ML prediction
+            LinkingReason.TEMPORAL_CORRELATION -> BigDecimal("0.60") // Media-baja - misma ventana temporal
+            LinkingReason.SYSTEM_MIGRATION -> BigDecimal("0.35")     // Baja confianza - datos legacy inciertos
         }
     }
 
@@ -252,6 +290,11 @@ interface OrderRepository {
         bookingRef: BookingRef?,
     ): Order
 
+    fun batchUpsertByRef(
+        tenantId: String,
+        orderRequests: List<OrderUpsertRequest>,
+    ): List<Order>
+
     fun findByPurchaseRef(
         tenantId: String,
         purchaseRef: PurchaseRef,
@@ -271,6 +314,11 @@ interface ContainerRepository {
         containerRef: ContainerRef,
         bookingRef: BookingRef?,
     ): Container
+
+    fun batchUpsertByRef(
+        tenantId: String,
+        containerRequests: List<ContainerUpsertRequest>,
+    ): List<Container>
 
     fun findByContainerRef(
         tenantId: String,
@@ -309,6 +357,11 @@ interface InvoiceRepository {
         purchaseRef: PurchaseRef,
     ): Invoice
 
+    fun batchUpsertByRef(
+        tenantId: String,
+        invoiceRequests: List<InvoiceUpsertRequest>,
+    ): List<Invoice>
+
     fun findByInvoiceRef(
         tenantId: String,
         invoiceRef: InvoiceRef,
@@ -326,7 +379,13 @@ interface OrderContainerRepository {
         orderId: Long,
         containerId: Long,
         linkingReason: LinkingReason = LinkingReason.BOOKING_MATCH,
+        confidenceScore: BigDecimal = BigDecimal("1.00"),
     ): OrderContainer
+
+    fun batchLinkOrdersAndContainers(
+        tenantId: String,
+        linkRequests: List<OrderContainerLinkRequest>,
+    ): List<OrderContainer>
 
     fun findContainersByOrderId(
         tenantId: String,
@@ -374,6 +433,29 @@ data class InvoiceData(val invoiceRef: String)
 data class ContainerData(val containerRef: String)
 
 data class EmailPayload(val rawPayload: String)
+
+// Batch request data classes
+data class OrderUpsertRequest(
+    val purchaseRef: PurchaseRef,
+    val bookingRef: BookingRef?,
+)
+
+data class ContainerUpsertRequest(
+    val containerRef: ContainerRef,
+    val bookingRef: BookingRef?,
+)
+
+data class InvoiceUpsertRequest(
+    val invoiceRef: InvoiceRef,
+    val purchaseRef: PurchaseRef,
+)
+
+data class OrderContainerLinkRequest(
+    val orderId: Long,
+    val containerId: Long,
+    val linkingReason: LinkingReason = LinkingReason.BOOKING_MATCH,
+    val confidenceScore: BigDecimal = BigDecimal("1.00"),
+)
 
 sealed class IngestResult {
     data class Success(val message: String) : IngestResult()
