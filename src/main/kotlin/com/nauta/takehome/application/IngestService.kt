@@ -12,6 +12,7 @@ import com.nauta.takehome.domain.OrderContainer
 import com.nauta.takehome.domain.PurchaseRef
 import com.nauta.takehome.infrastructure.web.EmailIngestRequest
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataAccessException
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 
@@ -42,8 +43,11 @@ class IngestService(
         // Parse basic structure from rawPayload
         return try {
             // In a real implementation, this would parse the email content structure
+            // Simplified extraction - real implementation would parse email headers
+            require(payload.rawPayload.isNotBlank()) { "Empty payload" }
+            val tenantId = "default"
             IngestMessage(
-                tenantId = extractTenantIdFromPayload(payload.rawPayload),
+                tenantId = tenantId,
                 booking = null,
                 orders = emptyList(),
                 containers = emptyList(),
@@ -51,12 +55,6 @@ class IngestService(
         } catch (e: IllegalArgumentException) {
             throw IllegalArgumentException("Invalid email payload format: ${e.message}", e)
         }
-    }
-
-    private fun extractTenantIdFromPayload(rawPayload: String): String {
-        // Simplified extraction - real implementation would parse email headers
-        require(rawPayload.isNotBlank()) { "Empty payload" }
-        return "default"
     }
 
     fun processIngestMessage(message: IngestMessage) {
@@ -70,40 +68,45 @@ class IngestService(
             }
 
         // Process orders using batch operation
-        val orderRequests = message.orders.map { orderData ->
-            val purchaseRef = PurchaseRef(orderData.purchaseRef)
-            val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
-            OrderUpsertRequest(purchaseRef, bookingRef)
-        }
-        val processedOrders = if (orderRequests.isNotEmpty()) {
-            orderRepository.batchUpsertByRef(tenantId, orderRequests)
-        } else {
-            emptyList()
-        }
+        val orderRequests =
+            message.orders.map { orderData ->
+                val purchaseRef = PurchaseRef(orderData.purchaseRef)
+                val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
+                OrderUpsertRequest(purchaseRef, bookingRef)
+            }
+        val processedOrders =
+            if (orderRequests.isNotEmpty()) {
+                orderRepository.batchUpsertByRef(tenantId, orderRequests)
+            } else {
+                emptyList()
+            }
 
         // Process invoices using batch operation
-        val invoiceRequests = message.orders.flatMap { orderData ->
-            val purchaseRef = PurchaseRef(orderData.purchaseRef)
-            orderData.invoices.map { invoiceData ->
-                val invoiceRef = InvoiceRef(invoiceData.invoiceRef)
-                InvoiceUpsertRequest(invoiceRef, purchaseRef)
+        val invoiceRequests =
+            message.orders.flatMap { orderData ->
+                val purchaseRef = PurchaseRef(orderData.purchaseRef)
+                orderData.invoices.map { invoiceData ->
+                    val invoiceRef = InvoiceRef(invoiceData.invoiceRef)
+                    InvoiceUpsertRequest(invoiceRef, purchaseRef)
+                }
             }
-        }
         if (invoiceRequests.isNotEmpty()) {
             invoiceRepository.batchUpsertByRef(tenantId, invoiceRequests)
         }
 
         // Process containers using batch operation
-        val containerRequests = message.containers.map { containerData ->
-            val containerRef = ContainerRef(containerData.containerRef)
-            val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
-            ContainerUpsertRequest(containerRef, bookingRef)
-        }
-        val processedContainers = if (containerRequests.isNotEmpty()) {
-            containerRepository.batchUpsertByRef(tenantId, containerRequests)
-        } else {
-            emptyList()
-        }
+        val containerRequests =
+            message.containers.map { containerData ->
+                val containerRef = ContainerRef(containerData.containerRef)
+                val bookingRef = message.booking?.let { BookingRef(it.bookingRef) }
+                ContainerUpsertRequest(containerRef, bookingRef)
+            }
+        val processedContainers =
+            if (containerRequests.isNotEmpty()) {
+                containerRepository.batchUpsertByRef(tenantId, containerRequests)
+            } else {
+                emptyList()
+            }
 
         // Progressive linking: Create M:N relationships between orders and containers
         performProgressiveLinking(tenantId, processedOrders, processedContainers, message.booking)
@@ -140,9 +143,12 @@ class IngestService(
         bookingRef: BookingRef,
     ) {
         // Link orders and containers that belong to the same booking
-        // Include items that already have this booking OR items that should inherit it (null booking in current payload)
+        // Include items that already have this booking OR items that should inherit it
         val eligibleOrders = orders.filter { it.bookingRef == bookingRef || it.bookingRef == null }
-        val eligibleContainers = containers.filter { it.bookingRef == bookingRef || it.bookingRef == null }
+        val eligibleContainers =
+            containers.filter {
+                it.bookingRef == bookingRef || it.bookingRef == null
+            }
 
         linkAllToAll(tenantId, eligibleOrders, eligibleContainers, LinkingReason.BOOKING_MATCH)
     }
@@ -157,38 +163,47 @@ class IngestService(
             return
         }
 
-        // Build all combinations as link requests with calculated confidence scores
         val confidenceScore = calculateConfidenceScore(linkingReason)
-        val linkRequests = orders.flatMap { order ->
-            containers.mapNotNull { container ->
-                if (order.id != null && container.id != null) {
-                    OrderContainerLinkRequest(order.id, container.id, linkingReason, confidenceScore)
-                } else {
-                    logger.warn("Skipping link for order ${order.id} or container ${container.id} with null ID")
-                    null
+        val linkRequests =
+            orders.flatMap { order ->
+                containers.mapNotNull { container ->
+                    if (order.id != null && container.id != null) {
+                        OrderContainerLinkRequest(order.id, container.id, linkingReason, confidenceScore)
+                    } else {
+                        logger.warn("Skipping link for order ${order.id} or container ${container.id} with null ID")
+                        null
+                    }
                 }
             }
-        }
 
         if (linkRequests.isNotEmpty()) {
-            try {
-                orderContainerRepository.batchLinkOrdersAndContainers(tenantId, linkRequests)
-                logger.debug("Batch linked ${linkRequests.size} order-container relationships for tenant: $tenantId")
-            } catch (e: Exception) {
-                logger.warn("Batch linking failed, falling back to individual links", e)
-                // Fallback to individual linking
-                linkRequests.forEach { request ->
-                    try {
-                        orderContainerRepository.linkOrderAndContainer(
-                            tenantId,
-                            request.orderId,
-                            request.containerId,
-                            request.linkingReason,
-                            request.confidenceScore
-                        )
-                    } catch (e: Exception) {
-                        logger.debug("Individual link failed for order ${request.orderId} and container ${request.containerId}", e)
-                    }
+            executeBatchLinking(tenantId, linkRequests)
+        }
+    }
+
+    private fun executeBatchLinking(
+        tenantId: String,
+        linkRequests: List<OrderContainerLinkRequest>,
+    ) {
+        try {
+            orderContainerRepository.batchLinkOrdersAndContainers(tenantId, linkRequests)
+            logger.debug("Batch linked ${linkRequests.size} order-container relationships for tenant: $tenantId")
+        } catch (e: DataAccessException) {
+            logger.warn("Batch linking failed, falling back to individual links", e)
+            linkRequests.forEach { request ->
+                try {
+                    orderContainerRepository.linkOrderAndContainer(
+                        tenantId,
+                        request.orderId,
+                        request.containerId,
+                        request.linkingReason,
+                        request.confidenceScore,
+                    )
+                } catch (e: DataAccessException) {
+                    logger.debug(
+                        "Individual link failed for order ${request.orderId} and container ${request.containerId}",
+                        e,
+                    )
                 }
             }
         }
@@ -200,11 +215,11 @@ class IngestService(
      */
     private fun calculateConfidenceScore(linkingReason: LinkingReason): BigDecimal {
         return when (linkingReason) {
-            LinkingReason.BOOKING_MATCH -> BigDecimal("1.00")        // Máxima confianza - mismo booking
-            LinkingReason.MANUAL -> BigDecimal("0.95")               // Alta confianza - admin manual
-            LinkingReason.AI_INFERENCE -> BigDecimal("0.70")         // Media confianza - ML prediction
+            LinkingReason.BOOKING_MATCH -> BigDecimal("1.00") // Máxima confianza - mismo booking
+            LinkingReason.MANUAL -> BigDecimal("0.95") // Alta confianza - admin manual
+            LinkingReason.AI_INFERENCE -> BigDecimal("0.70") // Media confianza - ML prediction
             LinkingReason.TEMPORAL_CORRELATION -> BigDecimal("0.60") // Media-baja - misma ventana temporal
-            LinkingReason.SYSTEM_MIGRATION -> BigDecimal("0.35")     // Baja confianza - datos legacy inciertos
+            LinkingReason.SYSTEM_MIGRATION -> BigDecimal("0.35") // Baja confianza - datos legacy inciertos
         }
     }
 
@@ -217,10 +232,10 @@ class IngestService(
         bookingRef: BookingRef,
     ) {
         // Find all existing orders with this booking
-        val existingOrders = findOrdersByBookingRef(tenantId, bookingRef)
+        val existingOrders = orderRepository.findByBookingRef(tenantId, bookingRef)
 
         // Find all existing containers with this booking
-        val existingContainers = findContainersByBookingRef(tenantId, bookingRef)
+        val existingContainers = containerRepository.findByBookingRef(tenantId, bookingRef)
 
         if (existingOrders.isNotEmpty() && existingContainers.isNotEmpty()) {
             logger.info(
@@ -229,20 +244,6 @@ class IngestService(
             )
             linkAllToAll(tenantId, existingOrders, existingContainers, LinkingReason.BOOKING_MATCH)
         }
-    }
-
-    private fun findOrdersByBookingRef(
-        tenantId: String,
-        bookingRef: BookingRef,
-    ): List<Order> {
-        return orderRepository.findByBookingRef(tenantId, bookingRef)
-    }
-
-    private fun findContainersByBookingRef(
-        tenantId: String,
-        bookingRef: BookingRef,
-    ): List<Container> {
-        return containerRepository.findByBookingRef(tenantId, bookingRef)
     }
 
     fun processEmailIngestRequest(

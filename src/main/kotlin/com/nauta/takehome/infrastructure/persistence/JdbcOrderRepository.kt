@@ -17,6 +17,10 @@ import java.time.Instant
 class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderRepository {
     private val logger = LoggerFactory.getLogger(JdbcOrderRepository::class.java)
 
+    companion object {
+        private const val BATCH_CHUNK_SIZE = 100
+    }
+
     override fun upsertByRef(
         tenantId: String,
         purchaseRef: PurchaseRef,
@@ -69,17 +73,18 @@ class JdbcOrderRepository(private val jdbcTemplate: JdbcTemplate) : OrderReposit
         val results = mutableListOf<Order>()
 
         // Process in chunks to avoid parameter limits and improve performance
-        orderRequests.chunked(100).forEach { chunk ->
+        orderRequests.chunked(BATCH_CHUNK_SIZE).forEach { chunk ->
             chunk.forEach { request ->
-                val order = jdbcTemplate.queryForObject(
-                    sql,
-                    orderRowMapper,
-                    request.purchaseRef.value,
-                    tenantId,
-                    request.bookingRef?.value,
-                    Timestamp.from(now),
-                    Timestamp.from(now),
-                )!!
+                val order =
+                    jdbcTemplate.queryForObject(
+                        sql,
+                        orderRowMapper,
+                        request.purchaseRef.value,
+                        tenantId,
+                        request.bookingRef?.value,
+                        Timestamp.from(now),
+                        Timestamp.from(now),
+                    )!!
                 results.add(order)
             }
         }

@@ -18,6 +18,10 @@ import java.time.Instant
 class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : ContainerRepository {
     private val logger = LoggerFactory.getLogger(JdbcContainerRepository::class.java)
 
+    companion object {
+        private const val BATCH_CHUNK_SIZE = 100
+    }
+
     override fun upsertByRef(
         tenantId: String,
         containerRef: ContainerRef,
@@ -70,17 +74,18 @@ class JdbcContainerRepository(private val jdbcTemplate: JdbcTemplate) : Containe
         val results = mutableListOf<Container>()
 
         // Process in chunks to avoid parameter limits and improve performance
-        containerRequests.chunked(100).forEach { chunk ->
+        containerRequests.chunked(BATCH_CHUNK_SIZE).forEach { chunk ->
             chunk.forEach { request ->
-                val container = jdbcTemplate.queryForObject(
-                    sql,
-                    containerRowMapper,
-                    request.containerRef.value,
-                    tenantId,
-                    request.bookingRef?.value,
-                    Timestamp.from(now),
-                    Timestamp.from(now),
-                )!!
+                val container =
+                    jdbcTemplate.queryForObject(
+                        sql,
+                        containerRowMapper,
+                        request.containerRef.value,
+                        tenantId,
+                        request.bookingRef?.value,
+                        Timestamp.from(now),
+                        Timestamp.from(now),
+                    )!!
                 results.add(container)
             }
         }

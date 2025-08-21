@@ -21,6 +21,10 @@ class JdbcOrderContainerRepository(
 ) : OrderContainerRepository {
     private val logger = LoggerFactory.getLogger(JdbcOrderContainerRepository::class.java)
 
+    companion object {
+        private const val BATCH_CHUNK_SIZE = 50
+    }
+
     override fun linkOrderAndContainer(
         tenantId: String,
         orderId: Long,
@@ -71,26 +75,37 @@ class JdbcOrderContainerRepository(
         val results = mutableListOf<OrderContainer>()
 
         // Process in chunks to avoid parameter limits and improve performance
-        linkRequests.chunked(50).forEach { chunk ->
+        linkRequests.chunked(BATCH_CHUNK_SIZE).forEach { chunk ->
             chunk.forEach { request ->
                 try {
-                    val result = linkOrderAndContainer(
-                        tenantId,
-                        request.orderId,
-                        request.containerId,
-                        request.linkingReason,
-                        request.confidenceScore
-                    )
+                    val result =
+                        linkOrderAndContainer(
+                            tenantId,
+                            request.orderId,
+                            request.containerId,
+                            request.linkingReason,
+                            request.confidenceScore,
+                        )
                     results.add(result)
                 } catch (e: DuplicateKeyException) {
-                    logger.debug("Relationship already exists between order ${request.orderId} and container ${request.containerId}", e)
+                    logger.debug(
+                        "Relationship already exists between order ${request.orderId} " +
+                            "and container ${request.containerId}",
+                        e,
+                    )
                 } catch (e: SecurityException) {
-                    logger.warn("Security validation failed for order ${request.orderId} and container ${request.containerId}: ${e.message}")
+                    logger.warn(
+                        "Security validation failed for order ${request.orderId} " +
+                            "and container ${request.containerId}: ${e.message}",
+                    )
                 }
             }
         }
 
-        logger.debug("Batch processed ${linkRequests.size} link requests, created ${results.size} relationships for tenant: $tenantId")
+        logger.debug(
+            "Batch processed ${linkRequests.size} link requests, " +
+                "created ${results.size} relationships for tenant: $tenantId",
+        )
         return results
     }
 

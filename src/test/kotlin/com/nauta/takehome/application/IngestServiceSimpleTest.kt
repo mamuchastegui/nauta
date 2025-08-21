@@ -245,7 +245,7 @@ class IngestServiceSimpleTest {
 
         val bookingRelationships = orderContainerRepository.findAllRelationships(tenantId)
         assertEquals(1, bookingRelationships.size)
-        
+
         val bookingRelationship = bookingRelationships.first()
         assertEquals(LinkingReason.BOOKING_MATCH, bookingRelationship.linkingReason)
         assertEquals(BigDecimal("1.00"), bookingRelationship.confidenceScore)
@@ -256,7 +256,8 @@ class IngestServiceSimpleTest {
         val migrationMessage =
             IngestMessage(
                 tenantId = tenantId,
-                booking = null, // No booking = fallback to SYSTEM_MIGRATION
+                // No booking = fallback to SYSTEM_MIGRATION
+                booking = null,
                 orders = listOf(OrderData("PO002", emptyList())),
                 containers = listOf(ContainerData("TCLU7654321")),
             )
@@ -265,7 +266,7 @@ class IngestServiceSimpleTest {
 
         val migrationRelationships = orderContainerRepository.findAllRelationships(tenantId)
         assertEquals(1, migrationRelationships.size)
-        
+
         val migrationRelationship = migrationRelationships.first()
         assertEquals(LinkingReason.SYSTEM_MIGRATION, migrationRelationship.linkingReason)
         assertEquals(BigDecimal("0.35"), migrationRelationship.confidenceScore)
@@ -522,7 +523,13 @@ class IngestServiceSimpleTest {
             linkRequests: List<OrderContainerLinkRequest>,
         ): List<OrderContainer> {
             return linkRequests.map { request ->
-                linkOrderAndContainer(tenantId, request.orderId, request.containerId, request.linkingReason, request.confidenceScore)
+                linkOrderAndContainer(
+                    tenantId,
+                    request.orderId,
+                    request.containerId,
+                    request.linkingReason,
+                    request.confidenceScore,
+                )
             }
         }
     }

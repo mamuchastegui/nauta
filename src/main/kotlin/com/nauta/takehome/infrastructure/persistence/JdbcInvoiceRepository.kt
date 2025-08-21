@@ -17,6 +17,10 @@ import java.time.Instant
 class JdbcInvoiceRepository(private val jdbcTemplate: JdbcTemplate) : InvoiceRepository {
     private val logger = LoggerFactory.getLogger(JdbcInvoiceRepository::class.java)
 
+    companion object {
+        private const val BATCH_CHUNK_SIZE = 100
+    }
+
     override fun upsertByRef(
         tenantId: String,
         invoiceRef: InvoiceRef,
@@ -69,17 +73,18 @@ class JdbcInvoiceRepository(private val jdbcTemplate: JdbcTemplate) : InvoiceRep
         val results = mutableListOf<Invoice>()
 
         // Process in chunks to avoid parameter limits and improve performance
-        invoiceRequests.chunked(100).forEach { chunk ->
+        invoiceRequests.chunked(BATCH_CHUNK_SIZE).forEach { chunk ->
             chunk.forEach { request ->
-                val invoice = jdbcTemplate.queryForObject(
-                    sql,
-                    invoiceRowMapper,
-                    request.invoiceRef.value,
-                    request.purchaseRef.value,
-                    tenantId,
-                    Timestamp.from(now),
-                    Timestamp.from(now),
-                )!!
+                val invoice =
+                    jdbcTemplate.queryForObject(
+                        sql,
+                        invoiceRowMapper,
+                        request.invoiceRef.value,
+                        request.purchaseRef.value,
+                        tenantId,
+                        Timestamp.from(now),
+                        Timestamp.from(now),
+                    )!!
                 results.add(invoice)
             }
         }
